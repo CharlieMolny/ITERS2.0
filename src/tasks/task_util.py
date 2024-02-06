@@ -106,15 +106,15 @@ def train_expert_model(env, env_config, model_config, expert_path, eval_path, fe
     return model
 
 
-def check_is_unique(unique_feedback, feedback_traj, timesteps, time_window, env, important_features,expl_type):
+def check_is_unique(unique_feedback, feedback_traj, timesteps, time_window, env, important_features,expl_type,signal):
     if expl_type == 'no_expl':
         return True
 
     unique = True
     threshold = 0.05
 
-    for f, imp_f, ts in unique_feedback:
-        if (imp_f == important_features) and (len(f) == len(feedback_traj)):
+    for f, imp_f, ts, sig in unique_feedback:
+        if (imp_f == important_features) and (len(f) == len(feedback_traj)) and sig==signal:
 
             enc_1 = encode_trajectory(feedback_traj, None, timesteps, time_window, env)
             enc_2 = encode_trajectory(f, None, ts, time_window, env)

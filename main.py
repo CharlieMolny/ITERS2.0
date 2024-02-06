@@ -66,13 +66,12 @@ def main():
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter)
 
     seeds = [0, 1, 2]
-    lmbdas = [2]   ##change this so it is the same as iters 1st paper
+    lmbdas = [0.5, 1, 2]   ##change this so it is the same as iters 1st paper
     epsilon=[0,0.1,0.2,0.5]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
         
-    for sum, expl in experiments:
-        
+    for sum, expl in experiments:   
         for l in lmbdas:
             for s in seeds:
                 print('Running experiment with summary = {}, expl = {}, lambda = {}, seed = {}'.format(sum, expl, l, s))
@@ -91,8 +90,13 @@ def main():
     expert_path = 'eval/{}/expert.csv'.format(task_name)
     model_env_path = 'eval/{}/model_env.csv'.format(task_name)
 
+    title = 'ITERS for different values of \u03BB in {} task'.format(task_name)
+    visualize_best_experiment(eval_path, expert_path, model_env_path, task_name, title)    
+
+
+    
     # visualize_best_experiment(eval_path, expert_path, model_env_path, task_name, 'ITERS for different values of \u03BB in Inventory Management task')
-    visualize_best_vs_rand_summary(best_summary_path, rand_summary_path, lmbdas, task_name, 'ITERS for different summary types in GridWorld task')
+    #visualize_best_vs_rand_summary(best_summary_path, rand_summary_path, lmbdas, task_name, 'ITERS for different summary types in GridWorld task')
 
     # model_path_A = 'trained_models/{}/regular_best_summary_expl/seed_0_lmbda_0.1_iter_5'.format(task_name)
     # model_path_B = 'trained_models/{}/regular_best_summary_expl/seed_0_lmbda_0.2_iter_6'.format(task_name)

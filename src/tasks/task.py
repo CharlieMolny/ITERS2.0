@@ -56,32 +56,34 @@ class Task:
 
         while not finished_training:
             print('Iteration = {}'.format(iteration))
-            model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration)
-            #model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration-1)
-            # try:    
-            #     exploration_fraction = max(0.05, 0.8 - 0.1 * (iteration / 10))
-            #     model = DQN.load(model_path, verbose=0, seed=random.randint(0, 100), exploration_fraction=exploration_fraction, env=self.env)
-            #     print('Loaded saved model')
+            #model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration) !! Only use for debugging  !!
+            model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration-1)
+            try:    
+                exploration_fraction = max(0.05, 0.8 - 0.1 * (iteration / 10))
+                model = DQN.load(model_path, verbose=0, seed=random.randint(0, 100), exploration_fraction=exploration_fraction, env=self.env)
+                print('Loaded saved model')
 
-            #     # if it's not the first iteration reward model should be used
-            #     self.env.set_shaping(True)
-            #     self.env.set_lambda(lmbda)
-            #     self.env.set_reward_model(self.reward_model)
+                # if it's not the first iteration reward model should be used
+                self.env.set_shaping(True)
+                self.env.set_lambda(lmbda)
+                self.env.set_reward_model(self.reward_model)
 
-            # except FileNotFoundError:
-            #     self.env.set_lambda(lmbda)
-            #     model = DQN('MlpPolicy',
-            #                 self.env,
-            #                 seed=random.randint(0, 100),
-            #                 **self.model_config)
-            #     print('First time training the model')
+            except FileNotFoundError:
+                self.env.set_lambda(lmbda)
+                model = DQN('MlpPolicy',
+                            self.env,
+                            seed=random.randint(0, 100),
+                            **self.model_config)
+                print('First time training the model')
 
-            # #--------------commenting out for debugging purposes
-            # print('Training DQN for {} timesteps'.format(self.feedback_freq))
+            #--------------commenting out for debugging purposes
+            print('Training DQN for {} timesteps'.format(self.feedback_freq))
 
             # model.learn(total_timesteps=self.feedback_freq)
             # model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration))
-            model=DQN.load(model_path)
+
+            #model=DQN.load(model_path) !Debugging Purposes Only !
+            
             # print the best trajectories
             best_traj = present_successful_traj(model, self.env, summary_type, n_traj=10)
 
@@ -101,15 +103,18 @@ class Task:
                 self.evaluator.evaluate(model, self.env, path=os.path.join(self.eval_path, title), lmbda=lmbda, seed=self.seed, write=True)
                 break
 
+            count=0    
             unique_feedback = []
             for feedback_type, feedback_traj, signal, important_features, timesteps in feedback:
+                print("Trajectory Number {}".format(count))
+                count +=1
                 important_features, actions, rules = generate_important_features(important_features, self.env.state_len, feedback_type, self.time_window, feedback_traj)
-                unique = check_is_unique(unique_feedback, feedback_traj, timesteps, self.time_window, self.env, important_features, expl_type)
+                unique = check_is_unique(unique_feedback, feedback_traj, timesteps, self.time_window, self.env, important_features, expl_type,signal) ##signal has now been addeed to important features 
 
                 if not unique:
                     continue
                 else:
-                    unique_feedback.append((feedback_traj, important_features, timesteps))
+                    unique_feedback.append((feedback_traj, important_features, timesteps,signal))
 
                 # augment feedback for each trajectory
                 D = augment_feedback_diff(feedback_traj,
@@ -132,6 +137,7 @@ class Task:
                                                 actions,
                                                 rules,
                                                 iteration)
+                
 
         # Update reward model with augmented data
         self.reward_model.update()

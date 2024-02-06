@@ -10,7 +10,7 @@ class ReplayBuffer:
     def __init__(self, capacity, time_window):
         self.capacity = capacity
         self.time_window = time_window
-
+        self.count=0
         self.curr_iter = 0
 
     def initialize(self, dataset):
@@ -57,141 +57,68 @@ class ReplayBuffer:
         self.curr_iter = iter
 
     def update(self, new_data, signal, important_features, datatype, actions, rules, iter): 
-        print('Updating reward buffer...')
         full_dataset = torch.cat([self.dataset.tensors[0], new_data.tensors[0]])
         curr_dataset = self.dataset
 
-        y = torch.cat([curr_dataset.tensors[1], new_data.tensors[1]])
-        y = [signal if self.similar_to_data(new_data.tensors[0], full_dataset[i], important_features, datatype, actions, rules) else np.sign(l) for i, l in enumerate(y)]
-        y = torch.tensor(y)
-
-        y_list=y.tolist()
-        min_value_index_y = y_list.index(min(y_list))  # Index of the minimum value in y_list
-        max_value_index_y = y_list.index(max(y_list))  # Index of the maximum value in y_list
-        
-        print(f"Index of minimum in y_list: {min_value_index_y}")
-        print(f"Index of maximum in y_list: {max_value_index_y}")
-        print()
-
         threshold = 0.05
-
-    #if self.curr_iter != iter:
         closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
-        new_marked = [max(self.marked[closest[i][0]]) + 1 if closest[i][1] < threshold else 1 for i, n in enumerate(new_data.tensors[0])]
-        new_marked = torch.tensor(new_marked)
 
-        self.marked = [m + signal if self.similar_to_data(new_data.tensors[0], self.dataset.tensors[0][i], important_features, datatype, actions, rules) else m for i, m in enumerate(self.marked)]
+        new_marked = []
+
+
+        # for i, tensor in enumerate(new_data.tensors[0]):
+        #     closest_index, distance = closest[i]
+
+        #     if distance < threshold:
+        #         new_mark= max(self.marked[closest_index], key=abs) + signal ## find the absolute maximum and add signal to it
+        #     else:
+        #         new_mark = signal ## new mark will initally have the same value as sig
+
+        #     new_marked.append(new_mark)
+
+        new_marked = [max(self.marked[closest[i][0]],key=abs) + signal if closest[i][1] < threshold else signal for i, n in enumerate(new_data.tensors[0])]
+            
+        new_marked = torch.tensor(new_marked)
+        new_marked_list=new_marked.tolist()
+
+
+        updated_marked = []
+
+        for i, current_mark in enumerate(self.marked):
+            new_data_tensor = new_data.tensors[0]
+            dataset_tensor = self.dataset.tensors[0][i]
+
+            is_similar = self.similar_to_data(
+                new_data_tensor, 
+                dataset_tensor, 
+                important_features, 
+                datatype, 
+                actions, 
+                rules
+            )
+            
+
+            if is_similar:
+                updated_mark = current_mark + signal
+            else:
+                updated_mark = current_mark
+            
+
+            updated_marked.append(updated_mark)
+
+        self.marked = updated_marked
+
+        print()
         self.marked = torch.tensor(self.marked)
         self.marked = torch.cat([self.marked, new_marked])
         marked_list = self.marked.tolist()
         
-        y_list=y.tolist()
-        # Assuming marked_list is already defined and converted from a tensor to a list
-        min_value_index = marked_list.index(min(marked_list))  # Index of the minimum value
-        max_value_index = marked_list.index(max(marked_list))  # Index of the maximum value
-        # Assuming y_list is already defined and converted from the result of `self.marked * y` to a list
-        min_value_index_y = y_list.index(min(y_list))  # Index of the minimum value in y_list
-        max_value_index_y = y_list.index(max(y_list))  # Index of the maximum value in y_list
-
-        print(f"Index of minimum in marked_list: {min_value_index}")
-        print(f"Index of maximum in marked_list: {max_value_index}")
-
-        print(f"IBefore MM Index of minimum in y_list: {min_value_index_y}")
-        print(f"Before MM Index of maximum in y_list: {max_value_index_y}")
-        print()
-
-
-        y = self.marked * y
-        y_list=y.tolist()
-        min_value_index_y = y_list.index(min(y_list))  # Index of the minimum value in y_list
-        max_value_index_y = y_list.index(max(y_list))  # Index of the maximum value in y_list
-        
-        print(f"After Matrix Mul Index of minimum in y_list: {min_value_index_y}")
-        print(f"After Matrix Mul Index of maximum in y_list: {max_value_index_y}")
-        print()
-
-
-
-        # else:
-        #     closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
-        #     new_marked = [max(self.marked[closest[i][0]]) if closest[i][1] < threshold else 1 for i, n in
-        #                   enumerate(new_data.tensors[0])]
-        #     new_marked = torch.tensor(new_marked)
-
-        #     self.marked = [m  if self.similar_to_data(new_data.tensors[0], self.dataset.tensors[0][i], important_features,
-        #                                       datatype, actions, rules) else m for i, m in enumerate(self.marked)]
-        #     self.marked = torch.tensor(self.marked)
-        #     self.marked = torch.cat([self.marked, new_marked])
-
-        #     marked_list = self.marked.tolist()
-
-        #     y_list=y.tolist()
-
-        #     min_value_index = marked_list.index(min(marked_list))  # Index of the minimum value
-        #     max_value_index = marked_list.index(max(marked_list))  # Index of the maximum value
-        #     # Assuming y_list is already defined and converted from the result of `self.marked * y` to a list
-        #     min_value_index_y = y_list.index(min(y_list))  # Index of the minimum value in y_list
-        #     max_value_index_y = y_list.index(max(y_list))  # Index of the maximum value in y_list
-
-        #     print(f"Index of minimum in marked_list: {min_value_index}")
-        #     print(f"Index of maximum in marked_list: {max_value_index}")
-
-        #     print(f"Before Matrix Mul Index of minimum in y_list: {min_value_index_y}")
-        #     print(f"Before Matrix Mul Index of maximum in y_list: {max_value_index_y}")
-        #     print()
-
-        #     y = self.marked * y ###  y dictates the signal, marked keeps track on how many times each trajctory gets marked
-
-        #     y_list=y.tolist()
-        #     min_value_index_y = y_list.index(min(y_list))  # Index of the minimum value in y_list
-        #     max_value_index_y = y_list.index(max(y_list))  # Index of the maximum value in y_list
-            
-        #     print(f"After Matrix Mul Index of minimum in y_list: {min_value_index_y}")
-        #     print(f"After Matrix Mul Index of maximum in y_list: {max_value_index_y}")
-        #     print()
-
-
-        self.dataset = TensorDataset(full_dataset, y)
+        self.dataset = TensorDataset(full_dataset, self.marked)
         self.curr_iter = iter
 
 
-    ###D, signal, important_features, datatype, actions, rules, iter
-    # def update_marks_based_on_signal(self, new_data, signal, important_features, datatype, actions, rules, iter):
-    #     print('Updating reward buffer...')
-    #     full_dataset = torch.cat([self.dataset.tensors[0], new_data.tensors[0]])
-    #     curr_dataset = self.dataset
-
-    #     y = torch.cat([curr_dataset.tensors[1], new_data.tensors[1]])
-    #     y = [signal if self.similar_to_data(new_data.tensors[0], full_dataset[i], important_features, datatype, actions, rules) else np.sign(l) for i, l in enumerate(y)]
-    #     y = torch.tensor(y)
-
-    #     threshold = 0.05
-
-    #     closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
-
-    #     new_marked = [signal for _ in new_data.tensors[0]]  
-
-    #     for i, (closest_idx, similarity) in enumerate(closest):  
-    #         if similarity < threshold:
-    #             if signal == 1:
-    #                 new_marked[i] += self.marked[closest_idx]
-    #             elif signal == -1:
-    #                 new_marked[i] -= self.marked[closest_idx]
-
-    #     new_marked = torch.tensor(new_marked, dtype=torch.float)
-
-    #     for i in range(len(self.dataset.tensors[0])):
-    #         similar_to_any_new_data = any(self.similar_to_data(new_data.tensors[0][j], self.dataset.tensors[0][i], important_features, datatype, actions, rules) for j in range(len(new_data.tensors[0])))
-    #         if similar_to_any_new_data:
-    #             self.marked[i] += signal  
 
 
-    #     self.marked = torch.cat([self.marked, new_marked])
-
-    #     y= self.marked *y 
-
-    #     self.dataset = TensorDataset(full_dataset, y)
-    #     self.curr_iter = iter
 
     def update_on_signal(self, new_data, signal, important_features, datatype, actions, rules, iter):
         print('Updating reward buffer...')
