@@ -10,18 +10,22 @@ from src.tasks.task import Task
 from src.tasks.task_util import train_expert_model, train_model
 from src.util import seed_everything, load_config
 import argparse
-
+import torch, os, pickle
 from src.visualization.visualization import visualize_experiments, visualize_best_experiment, \
     visualize_best_vs_rand_summary
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--task')
-    args = parser.parse_args()
+    
+    # parser = argparse.ArgumentParser()  
+    # parser.add_argument('--task') 
+    # args = parser.parse_args()
+    ### add whether it is sumulated feedback here
+    # task_name = args.task
 
-    task_name = args.task
 
+
+    task_name="highway"
     print('Task = {}'.format(task_name))
 
     # Define paths
@@ -29,9 +33,10 @@ def main():
     env_config_path = 'config/env/{}.json'.format(task_name)
     model_config_path = 'config/model/{}.json'.format(task_name)
     task_config_path = 'config/task/{}.json'.format(task_name)
+    dataset_path='datasets/{}/'.format(task_name)
 
     # Load configs
-    env_config = load_config(env_config_path)
+    env_config = load_config(env_config_path)###changed time window to 30
     model_config = load_config(model_config_path)
     task_config = load_config(task_config_path)
 
@@ -56,16 +61,18 @@ def main():
     expert_path = 'trained_models/{}_expert'.format(task_name)
     eval_path = 'eval/{}/'.format(task_name)
 
+
     model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter)
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter)
 
     seeds = [0, 1, 2]
-    lmbdas = [2]
-
+    lmbdas = [2]   ##change this so it is the same as iters 1st paper
+    epsilon=[0,0.1,0.2,0.5]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
-
+        
     for sum, expl in experiments:
+        
         for l in lmbdas:
             for s in seeds:
                 print('Running experiment with summary = {}, expl = {}, lambda = {}, seed = {}'.format(sum, expl, l, s))
@@ -73,7 +80,7 @@ def main():
 
                 eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)
 
-                task = Task(env, model_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
+                task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
                             eval_path, **task_config, expl_type=expl, auto=True, seed=s)
                 task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl)
 

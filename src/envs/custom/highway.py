@@ -1,10 +1,10 @@
 from highway_env import utils
-
+import random
 import numpy as np
 import copy
 from highway_env.envs import highway_env
 from highway_env.vehicle.controller import ControlledVehicle
-
+import torch
 from src.feedback.feedback_processing import encode_trajectory
 
 
@@ -43,8 +43,8 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         self.episode.append((self.state, action))
 
         curr_lane = self.vehicle.target_lane_index[2] if isinstance(self.vehicle, ControlledVehicle) else self.vehicle.lane_index[2]
-        self.state, rew, done, info = super().step(action)
-
+        self.state, rew, done, info = super().step(action) ## super is the original highway-- (inheritence)
+                                                        
         info['true_rew'] = rew
 
         neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
@@ -65,6 +65,8 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         aug_rew = 0
         if self.shaping:
             aug_rew = self.augment_reward(action, self.state)
+
+        #print(f"augmented/human reward: {aug_rew}")    
 
         rew += aug_rew
         rew += lane_change * self.config['lane_change_reward']
@@ -133,10 +135,62 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
     def encode_state(self, state):
         return state[0].flatten()
+    
+ ##  new get weighted feedback
+    def get_weighted_feedback(self, best_traj, expl_type):
+        feedback_list = []
+        count = 0
+        for traj in best_traj:
+            # Extract lane positions from each state in the trajectory
+            lanes = [s.flatten()[2] for s, a in traj]
+            # Determine if a lane change occurred between consecutive states
+            changed_lanes = [abs(lanes[i] - lanes[i-1]) > 0.1 if i >= 1 else False for i, _ in enumerate(lanes)]
 
+            start = 0
+            end = start + 2
+            negative_label_assigned = False  # Flag to track if negative label is assigned
+
+            while end < len(changed_lanes):
+                while (end - start) <= self.time_window:
+                    if end >= len(changed_lanes):
+                        break
+
+                    # Count the number of lane changes in the current segment
+                    changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
+
+                    if changed and changed_lanes[start+1]:  
+                        print("Negative Trajectory number {}".format(count))
+                        negative_label_assigned = True  # Set flag to True as negative label is assigned
+                        feedback_list.append(('s', traj[start:end], -1, [2 + (i*self.state_len) for i in range(0, end-start)], end-start))
+                        start = end  # Move to the next segment
+                        end = start + 2
+                        if expl_type == 'expl':
+                            break
+                    else:
+                        end += 1  # Expand the current segment
+
+                start += 1  # Move the start forward for the next evaluation
+                end = start + 2  # Reset the end of the segment
+
+            # If no negative label was assigned throughout the trajectory, label it positive
+            if not negative_label_assigned:
+                print("Positive Trajectory Number {}".format(count))
+                lowerbound, upperbound = 0, len(traj)
+                if len(traj) > self.time_window:
+                    # If the trajectory is longer than the time_window, select a random segment
+                    start = random.randint(0, len(traj) - self.time_window)  # Random start index
+                    lowerbound, upperbound = start, start + self.time_window
+                
+                feedback_list.append(('s', traj[lowerbound:upperbound], 1, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],upperbound-lowerbound ))
+
+            count += 1
+        return feedback_list, True
+
+##### original
     def get_feedback(self, best_traj, expl_type):
         feedback_list = []
 
+        count=0
         for traj in best_traj:
             lanes = [s.flatten()[2] for s, a in traj]
             changed_lanes = [abs(lanes[i] - lanes[i-1]) > 0.1 if i >= 1 else False for i, _ in enumerate(lanes)]
@@ -152,6 +206,8 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                     changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
 
                     if changed and changed_lanes[start+1]:
+
+                        print("trajectory number {}".format(count))
                         feedback_list.append(('s', traj[start:end], -1, [2 + (i*self.state_len) for i in range(0, end-start)], end-start))
                         start = end
                         end = start + 2
@@ -162,6 +218,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
                 start += 1
                 end = start + 2
+            count +=1
 
         print('Feedback: {}'.format(feedback_list))
         return feedback_list, True

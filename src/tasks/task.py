@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, feedback_freq, expl_type='expl',auto=False, seed=0):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, feedback_freq, expl_type='expl',auto=False, seed=0):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq
@@ -30,12 +30,13 @@ class Task:
         self.auto = auto
         self.seed = seed
         self.init_type = env_config['init_type']
-
+        
         # set seed
         random.seed(seed)
 
         self.init_model = self.model_env if self.init_type == 'train' else None
-        init_data = init_replay_buffer(self.env, self.init_model, self.time_window, self.env_config['init_buffer_ep'], expl_type=expl_type)
+        ### need to add path variable
+        init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type)
 
         self.reward_model = RewardModel(self.time_window, env_config['input_size'])
 
@@ -55,30 +56,32 @@ class Task:
 
         while not finished_training:
             print('Iteration = {}'.format(iteration))
-            try:
-                model_path = self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration-1)
-                exploration_fraction = max(0.05, 0.8 - 0.1 * (iteration / 10))
-                model = DQN.load(model_path, verbose=0, seed=random.randint(0, 100), exploration_fraction=exploration_fraction, env=self.env)
-                print('Loaded saved model')
+            model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration)
+            #model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration-1)
+            # try:    
+            #     exploration_fraction = max(0.05, 0.8 - 0.1 * (iteration / 10))
+            #     model = DQN.load(model_path, verbose=0, seed=random.randint(0, 100), exploration_fraction=exploration_fraction, env=self.env)
+            #     print('Loaded saved model')
 
-                # if it's not the first iteration reward model should be used
-                self.env.set_shaping(True)
-                self.env.set_lambda(lmbda)
-                self.env.set_reward_model(self.reward_model)
+            #     # if it's not the first iteration reward model should be used
+            #     self.env.set_shaping(True)
+            #     self.env.set_lambda(lmbda)
+            #     self.env.set_reward_model(self.reward_model)
 
-            except FileNotFoundError:
-                self.env.set_lambda(lmbda)
-                model = DQN('MlpPolicy',
-                            self.env,
-                            seed=random.randint(0, 100),
-                            **self.model_config)
-                print('First time training the model')
+            # except FileNotFoundError:
+            #     self.env.set_lambda(lmbda)
+            #     model = DQN('MlpPolicy',
+            #                 self.env,
+            #                 seed=random.randint(0, 100),
+            #                 **self.model_config)
+            #     print('First time training the model')
 
-            print('Training DQN for {} timesteps'.format(self.feedback_freq))
+            # #--------------commenting out for debugging purposes
+            # print('Training DQN for {} timesteps'.format(self.feedback_freq))
 
-            model.learn(total_timesteps=self.feedback_freq)
-            model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration))
-
+            # model.learn(total_timesteps=self.feedback_freq)
+            # model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration))
+            model=DQN.load(model_path)
             # print the best trajectories
             best_traj = present_successful_traj(model, self.env, summary_type, n_traj=10)
 
@@ -119,7 +122,7 @@ class Task:
                                           actions,
                                           datatype=(self.state_dtype, self.action_dtype),
                                           expl_type=expl_type,
-                                          length=10000)
+                                          length=10)
 
                 # Update reward buffer with augmented data
                 self.reward_model.update_buffer(D,
@@ -130,13 +133,13 @@ class Task:
                                                 rules,
                                                 iteration)
 
-            # Update reward model with augmented data
-            self.reward_model.update()
+        # Update reward model with augmented data
+        self.reward_model.update()
 
-            # evaluate different rewards
-            self.evaluator.evaluate(model, self.env, feedback_size=len(unique_feedback))
+        # evaluate different rewards
+        self.evaluator.evaluate(model, self.env, feedback_size=len(unique_feedback))
 
-            iteration += 1
+        iteration += 1
 
 
 

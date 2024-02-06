@@ -114,7 +114,7 @@ def get_input(best_traj):
 
 def gather_feedback(best_traj, time_window, env, disruptive=False, noisy=False, prob=0, expl_type='expl', auto=False):
     if auto:
-        feedback_list, cont = env.get_feedback(best_traj, expl_type=expl_type)
+        feedback_list, cont = env.get_weighted_feedback(best_traj, expl_type=expl_type) ## changed this
     else:
         feedback_list, cont = get_input(best_traj)
 
@@ -181,7 +181,7 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
         traj_len = len(traj)
         traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
         enc_len = traj_enc.shape[0]
-
+        #### feature label should be immutable
         immutable_features = [im_f + (state_len * i) for i in range(traj_len) for im_f in env.immutable_features]
 
         important_features += immutable_features
@@ -239,7 +239,7 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
     y = np.zeros((len(D),))
     y.fill(signal)
     y = torch.tensor(y)
-
+    
     dataset = TensorDataset(D, y)
 
     print('Generated {} augmented samples'.format(len(dataset)))
@@ -263,12 +263,12 @@ def satisfy(D, r, time_window):
         max_value = satisfies[max_index]
 
         if max_value > 0:
-            return D[satisfies], [max_index]
+            return D[satisfies], [max_index]    
         else:
             return D[satisfies], []
 
 
-def decode_rule(rule):
+def decode_rule(rule):  ### this could change to a tree
     ''' Decode the rule from string to a dict form '''
     agg = rule.split('(')[0]
     term = rule.split('(')[1].split(')')[0]
@@ -317,7 +317,7 @@ def encode_trajectory(traj, state, timesteps, time_window, env):
     states = []
     actions = []
 
-    assert len(traj) <= time_window
+    assert len(traj) <= time_window #### this is causing issues 
 
     curr = 1
     for s, a in traj:
