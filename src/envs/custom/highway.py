@@ -28,7 +28,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
         self.lane = 0
         self.lmbda = 0.2
-
+        self.epsilon=0
         self.lane_changed = []
 
         # presence features are immutable
@@ -161,7 +161,10 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                     if changed and changed_lanes[start+1]:  
                         print("Negative Trajectory number {}".format(count))
                         negative_label_assigned = True  # Set flag to True as negative label is assigned
-                        feedback_list.append(('s', traj[start:end], -1, [2 + (i*self.state_len) for i in range(0, end-start)], end-start))
+                        signal=-1
+                        if random.random() < self.epsilon:
+                               signal=-signal
+                        feedback_list.append(('s', traj[start:end], signal, [2 + (i*self.state_len) for i in range(0, end-start)], end-start))
                         start = end  # Move to the next segment
                         end = start + 2
                         if expl_type == 'expl':
@@ -180,8 +183,10 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                     # If the trajectory is longer than the time_window, select a random segment
                     start = random.randint(0, len(traj) - self.time_window)  # Random start index
                     lowerbound, upperbound = start, start + self.time_window
-                
-                feedback_list.append(('s', traj[lowerbound:upperbound], 1, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],upperbound-lowerbound ))
+                    signal=1
+                    if random.random() < self.epsilon:
+                        signal=-signal
+                feedback_list.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],upperbound-lowerbound ))
 
             count += 1
         return feedback_list, True
@@ -225,6 +230,10 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
     def set_lambda(self, l):
         self.lmbda = l
+    
+    def set_epsilon(self, e):
+        self.epsilon=e
+
 
 
 

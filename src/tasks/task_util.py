@@ -1,6 +1,6 @@
 import copy
 import os
-
+import torch
 import numpy as np
 import torch
 from stable_baselines3 import DQN
@@ -13,6 +13,9 @@ from src.feedback.feedback_processing import encode_trajectory, present_successf
 from src.visualization.visualization import visualize_feature
 import pickle
 
+class NotDebugging(Exception):
+    pass
+
 def check_dtype(env):
     state_dtype = env.state_dtype
     action_dtype = env.action_dtype
@@ -20,10 +23,12 @@ def check_dtype(env):
     return state_dtype, action_dtype
 
 
-def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, expl_type='expl'):
+def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, expl_type='expl',debugging=False):
 ###probably best to not use loaded buffer,-- mainly done for debugging purposes
    
     try:
+        if not debugging: 
+            raise NotDebugging
         dataset_file_path=dataset_path+'data.pkl' 
         # Open the file in binary read mode
         with open(dataset_file_path, 'rb') as file:
@@ -31,7 +36,7 @@ def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, ex
             dataset = pickle.load(file)
         print("loaded initial buffer")
 
-    except FileNotFoundError:
+    except :
         print('Initializing replay buffer with env reward...')
         D = []
         n_episodes = n_episodes if expl_type == 'expl' else int(n_episodes / 10)
@@ -71,16 +76,18 @@ def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, ex
         
         os.makedirs(dataset_path, exist_ok=True)  # Ensure the directory exists
   
-        
-        with open(dataset_file_path, "wb") as fp:  
-            pickle.dump(dataset, fp)
+        try: 
+            torch.save(dataset, dataset_path)
+
+        except PermissionError:
+            print("Could not save locally due to permission error")
         
 
 
     return dataset
 
 
-def train_expert_model(env, env_config, model_config, expert_path, eval_path, feedback_freq, max_iter, timesteps=int(1e5)):
+def train_expert_model(env, env_config, model_config, expert_path, eval_path, feedback_freq, max_iter,debugging, timesteps=int(1e5)):
     orig_config = copy.copy(env.config)
     rewards = env_config['true_reward_func']
     env.configure(rewards)
@@ -97,12 +104,13 @@ def train_expert_model(env, env_config, model_config, expert_path, eval_path, fe
         model.learn(total_timesteps=feedback_freq*max_iter, callback=callback)
 
         model.save(expert_path)
-    ## commeneted this out because it takes time--debugging 
-    # best_traj = present_successful_traj(model, env, n_traj=10)
-    # visualize_feature(best_traj, 0, plot_actions=True, title='Model trained on the true reward')
+    
+    # if not debugging:
+    #     best_traj = present_successful_traj(model, env, n_traj=10)
+    #     visualize_feature(best_traj, 0, plot_actions=True, title='Model trained on the true reward')
 
-    # # reset original config
-    # env.configure(orig_config)
+    # reset original config
+    env.configure(orig_config)
     return model
 
 
@@ -127,7 +135,7 @@ def check_is_unique(unique_feedback, feedback_traj, timesteps, time_window, env,
     return unique
 
 
-def train_model(env, model_config, path, eval_path, feedback_freq, max_iter):
+def train_model(env, model_config, path, eval_path, feedback_freq, max_iter, debugging):
     try:
         model = DQN.load(path, seed=1, env=env)
         print('Loaded initial model')
@@ -141,13 +149,13 @@ def train_model(env, model_config, path, eval_path, feedback_freq, max_iter):
 
         model.save(path)
 
-    ## commeneted this out because it takes time--debugging    
-    # evaluator = Evaluator()
-    # avg_mo = evaluator.evaluate(model, env, path=os.path.join(eval_path, 'model_env.csv'), seed=0, write=True)
-    # print('Mean reward for objectives = {} for initial model = {}'.format(env.config, avg_mo))
+    # if not debugging:        
+    #     evaluator = Evaluator()
+    #     avg_mo = evaluator.evaluate(model, env, path=os.path.join(eval_path, 'model_env.csv'), seed=0, write=True)
+    #     print('Mean reward for objectives = {} for initial model = {}'.format(env.config, avg_mo))
 
-    # best_traj = present_successful_traj(model, env, n_traj=10)
-    # visualize_feature(best_traj, 0, plot_actions=True, title='Model trained with environment reward')
+    #     best_traj = present_successful_traj(model, env, n_traj=10)
+    #     visualize_feature(best_traj, 0, plot_actions=True, title='Model trained with environment reward')
 
     return model
 

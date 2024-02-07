@@ -16,7 +16,8 @@ from src.visualization.visualization import visualize_experiments, visualize_bes
 
 
 def main():
-    
+    debugging=True
+
     # parser = argparse.ArgumentParser()  
     # parser.add_argument('--task') 
     # args = parser.parse_args()
@@ -62,26 +63,27 @@ def main():
     eval_path = 'eval/{}/'.format(task_name)
 
 
-    model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter)
-    expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter)
+    model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter,debugging)
+    expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter, debugging)
 
     seeds = [0, 1, 2]
-    lmbdas = [0.5, 1, 2]   ##change this so it is the same as iters 1st paper
-    epsilon=[0,0.1,0.2,0.5]
+    lmbdas = [2]   ##change this so it is the same as iters 1st paper
+    epsilons=[0]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
         
     for sum, expl in experiments:   
-        for l in lmbdas:
-            for s in seeds:
-                print('Running experiment with summary = {}, expl = {}, lambda = {}, seed = {}'.format(sum, expl, l, s))
-                seed_everything(s)
+        for e in epsilons:
+            for l in lmbdas:
+                for s in seeds:
+                        print('Running experiment with summary = {}, expl = {}, lambda = {}, seed = {}, epsilon = {}'.format(sum, expl, l, s,e))
+                        seed_everything(s)
 
-                eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)
+                        eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)
 
-                task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                            eval_path, **task_config, expl_type=expl, auto=True, seed=s)
-                task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl)
+                        task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s)
+                        task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e)
 
     # # visualizing true reward for different values of lambda
     eval_path = 'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
@@ -94,7 +96,7 @@ def main():
     visualize_best_experiment(eval_path, expert_path, model_env_path, task_name, title)    
 
 
-    
+
     # visualize_best_experiment(eval_path, expert_path, model_env_path, task_name, 'ITERS for different values of \u03BB in Inventory Management task')
     #visualize_best_vs_rand_summary(best_summary_path, rand_summary_path, lmbdas, task_name, 'ITERS for different summary types in GridWorld task')
 

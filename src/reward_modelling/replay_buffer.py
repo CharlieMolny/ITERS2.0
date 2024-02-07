@@ -56,31 +56,17 @@ class ReplayBuffer:
         self.dataset = TensorDataset(full_dataset, y)
         self.curr_iter = iter
 
-    def update(self, new_data, signal, important_features, datatype, actions, rules, iter): 
+    def  update(self, new_data, signal, important_features, datatype, actions, rules, iter): 
         full_dataset = torch.cat([self.dataset.tensors[0], new_data.tensors[0]])
         curr_dataset = self.dataset
 
         threshold = 0.05
         closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
 
-        new_marked = []
-
-
-        # for i, tensor in enumerate(new_data.tensors[0]):
-        #     closest_index, distance = closest[i]
-
-        #     if distance < threshold:
-        #         new_mark= max(self.marked[closest_index], key=abs) + signal ## find the absolute maximum and add signal to it
-        #     else:
-        #         new_mark = signal ## new mark will initally have the same value as sig
-
-        #     new_marked.append(new_mark)
-
         new_marked = [max(self.marked[closest[i][0]],key=abs) + signal if closest[i][1] < threshold else signal for i, n in enumerate(new_data.tensors[0])]
             
         new_marked = torch.tensor(new_marked)
-        new_marked_list=new_marked.tolist()
-
+        #new_marked_list=new_marked.tolist()
 
         updated_marked = []
 
