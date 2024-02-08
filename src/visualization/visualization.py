@@ -96,9 +96,9 @@ def visualize_best_experiment(path, expert_path, model_env_path, task_name, titl
 
         y_label = r'$R_{true}$' if metric == 'True reward' else metric
 
-        sns.lineplot(df, x="Iteration", y=metric, hue="lmbda", palette=pal)
-        sns.lineplot(data=expert_df, x='Iteration', y=metric, label=r'$M_{true}$')
-        sns.lineplot(data=model_env_df, x='Iteration', y=metric, label=r'$M_{env}$')
+        sns.lineplot(df, x="iter", y=metric, hue="lmbda", palette=pal)
+        sns.lineplot(data=expert_df, x='iter', y=metric, label=r'$M_{true}$')
+        sns.lineplot(data=model_env_df, x='iter', y=metric, label=r'$M_{env}$')
 
         plt.title(title)
         plt.ylabel(y_label)

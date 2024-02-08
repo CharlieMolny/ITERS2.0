@@ -31,6 +31,7 @@ class Task:
         self.seed = seed
         self.init_type = env_config['init_type']
         self.debugging=debugging
+
         # set seed
         random.seed(seed)
 
@@ -58,7 +59,7 @@ class Task:
             print('Iteration = {}'.format(iteration))
             #model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration) #!! Only use for debugging  !!
             #if debugging:
-            model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}_epsilon_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration-1,epsilon)
+            model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon,iteration-1)
             if self.debugging:
                 feedback_freq=10
             else:
@@ -86,7 +87,7 @@ class Task:
             print('Training DQN for {} timesteps'.format(feedback_freq))
 
             model.learn(total_timesteps=feedback_freq)
-            model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_iter_{}_epsilon_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, iteration,epsilon))
+            model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon,iteration))
 
             
             # print the best trajectories
@@ -153,10 +154,11 @@ class Task:
             if not self.debugging:
                 write=True
             else:
-                write=False
+                write=True
 
             # evaluate different rewards
-            self.evaluator.evaluate(model, self.env, feedback_size=len(unique_feedback),write=write)
+            path='eval/{}/model_env.csv'.format(self.task_name)
+            self.evaluator.evaluate(model, self.env, path=path,seed=self.seed,lmbda=lmbda, feedback_size=len(unique_feedback),write=write)
 
             iteration += 1
 

@@ -15,19 +15,10 @@ from src.visualization.visualization import visualize_experiments, visualize_bes
     visualize_best_vs_rand_summary
 
 
-def main():
-    debugging=True
+def run(task_name):
+    debugging=False
 
-    # parser = argparse.ArgumentParser()  
-    # parser.add_argument('--task') 
-    # args = parser.parse_args()
-    ### add whether it is sumulated feedback here
-    # task_name = args.task
-
-
-
-    task_name="highway"
-    print('Task = {}'.format(task_name))
+    # print('Task = {}'.format(task_name))
 
     # Define paths
     model_path = 'trained_models/{}'.format(task_name)
@@ -71,6 +62,7 @@ def main():
     epsilons=[0]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
+
         
     for sum, expl in experiments:   
         for e in epsilons:
@@ -85,12 +77,16 @@ def main():
                                     eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e)
 
-    # # visualizing true reward for different values of lambda
+
+
+def evaluate(task_name):
+        # # visualizing true reward for different values of lambda
     eval_path = 'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
     best_summary_path = eval_path
     rand_summary_path = 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
-    expert_path = 'eval/{}/expert.csv'.format(task_name)
+    expert_path = 'eval/{}/expert'.format(task_name)
     model_env_path = 'eval/{}/model_env.csv'.format(task_name)
+    
 
     title = 'ITERS for different values of \u03BB in {} task'.format(task_name)
     visualize_best_experiment(eval_path, expert_path, model_env_path, task_name, title)    
@@ -108,6 +104,17 @@ def main():
     #
     # give_rule_feedback(model_A, model_B, env)
 
+
+def main():
+        # parser = argparse.ArgumentParser()  
+    # parser.add_argument('--task') 
+    # args = parser.parse_args()
+    ### add whether it is sumulated feedback here
+    # task_name = args.task
+
+    task_name="highway"
+    run(task_name)
+    #evaluate(task_name)
 
 if __name__ == '__main__':
     main()
