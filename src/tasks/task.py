@@ -154,7 +154,7 @@ class Task:
             if not self.debugging:
                 write=True
             else:
-                write=True
+                write=False
 
             # evaluate different rewards
             path='eval/{}/model_env.csv'.format(self.task_name)

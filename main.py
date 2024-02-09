@@ -28,7 +28,7 @@ def run(task_name):
     dataset_path='datasets/{}/'.format(task_name)
 
     # Load configs
-    env_config = load_config(env_config_path)###changed time window to 30
+    env_config = load_config(env_config_path)
     model_config = load_config(model_config_path)
     task_config = load_config(task_config_path)
 
@@ -46,7 +46,7 @@ def run(task_name):
     env.set_true_reward(env_config['true_reward_func'])
 
     eval_path = 'eval/{}/'.format(task_name)
-    max_iter = 50
+    max_iter = 20
 
     # initialize starting and expert.csv model
     init_model_path = 'trained_models/{}_init'.format(task_name)
@@ -58,7 +58,7 @@ def run(task_name):
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter, debugging)
 
     seeds = [0, 1, 2]
-    lmbdas = [2]   ##change this so it is the same as iters 1st paper
+    lmbdas = [0.01,0.05]   ##
     epsilons=[0]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]

@@ -67,14 +67,16 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
             aug_rew = self.augment_reward(action, self.state)
 
         #print(f"augmented/human reward: {aug_rew}")    
-
+        ### lane changed reward is the reward from the human reward model 
         rew += aug_rew
-        rew += lane_change * self.config['lane_change_reward']
+        lane_change_weight=self.config['lane_change_reward']
+        add_lane_change=lane_change * lane_change_weight
+        rew += add_lane_change
 
         info['rewards'] = {'collision_rew': coll_rew,
                            'right_lane_rew': right_lane_rew,
                            'speed_rew': speed_rew,
-                           'lane_change_rew': aug_rew,
+                           'lane_change_rew': aug_rew, ### human reward model prediction  
                            'lane_changed': lane_change,
                            'true_reward': true_reward}
 
