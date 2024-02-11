@@ -13,8 +13,8 @@ from src.feedback.feedback_processing import encode_trajectory, present_successf
 from src.visualization.visualization import visualize_feature
 import pickle
 
-class NotDebugging(Exception):
-    pass
+# class NotDebugging(Exception):
+#     pass
 
 def check_dtype(env):
     state_dtype = env.state_dtype
@@ -27,8 +27,8 @@ def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, ex
 ###probably best to not use loaded buffer,-- mainly done for debugging purposes
    
     try:
-        if not debugging: 
-            raise NotDebugging
+        # if not debugging: 
+        #     raise NotDebugging
         dataset_file_path=dataset_path+'data.pkl' 
         # Open the file in binary read mode
         with open(dataset_file_path, 'rb') as file:
