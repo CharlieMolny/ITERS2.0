@@ -87,12 +87,13 @@ def visualize_best_experiment(path, expert_path, model_env_path, task_name, titl
 
     expert_end_vals = expert_df.iloc[-1:]
     baseline_end_vals = model_env_df.iloc[-1:]
-
+    df['lmbda'] = df['lmbda'].astype(float)
     pal = sns.color_palette('Set2')
 
     for i, metric in enumerate(expert_df.columns):
         expert_df[metric] = expert_end_vals[metric].values[0]
         model_env_df[metric] = baseline_end_vals[metric].values[0]
+
 
         y_label = r'$R_{true}$' if metric == 'True reward' else metric
 

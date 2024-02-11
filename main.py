@@ -23,12 +23,8 @@ def check_environment():
         return True 
 
 
-def run(task_name):
-    debugging=check_environment()
-    if debugging:
-        prefix=''
-    else :
-        prefix='/content/ITERS2.0/'
+def run(task_name,debugging,prefix):
+
 
     # print('Task = {}'.format(task_name))
 
@@ -58,7 +54,7 @@ def run(task_name):
     env.set_true_reward(env_config['true_reward_func'])
 
     eval_path =  prefix+'eval/{}/'.format(task_name)
-    max_iter = 20
+    max_iter = 10
 
     # initialize starting and expert.csv model
     init_model_path =  prefix+'trained_models/{}_init'.format(task_name)
@@ -70,7 +66,7 @@ def run(task_name):
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter, debugging)
 
     seeds = [0, 1, 2]
-    lmbdas = [0.01,0.05]   ##
+    lmbdas = [0.05]   ##
     epsilons=[0]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
@@ -91,13 +87,13 @@ def run(task_name):
 
 
 
-def evaluate(task_name):
+def evaluate(task_name,prefix):
         # # visualizing true reward for different values of lambda
-    eval_path =   'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
-    best_summary_path = eval_path
-    rand_summary_path = 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
-    expert_path = 'eval/{}/expert'.format(task_name)
-    model_env_path = 'eval/{}/model_env.csv'.format(task_name)
+    eval_path =prefix +   'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
+    best_summary_path = prefix+  eval_path
+    rand_summary_path = prefix+  'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
+    expert_path = prefix +   'eval/{}/expert'.format(task_name)
+    model_env_path = prefix +  'eval/{}/model_env.csv'.format(task_name)
     
 
     title = 'ITERS for different values of \u03BB in {} task'.format(task_name)
@@ -123,10 +119,18 @@ def main():
     # args = parser.parse_args()
     ### add whether it is sumulated feedback here
     # task_name = args.task
+    
+    # debugging=check_environment()
+    # if debugging:
+    #     prefix=''
+    # else :
+    #     prefix='/content/ITERS2.0/'
+    debugging = False
+    prefix=''
 
     task_name="highway"
-    run(task_name)
-    #evaluate(task_name)
+    #run(task_name,debugging,prefix)
+    evaluate(task_name,prefix)
 
 if __name__ == '__main__':
     main()

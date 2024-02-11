@@ -56,7 +56,7 @@ class RewardModelNN:
                 self.optimizer.step()
 
                 total_loss += loss.item()
-
+            print("Length of training dataloader :{}" .format(len(train_dataloader)))
             print('Epoch = {}. Training loss = {} Training examples = {}'.format(i, total_loss / (len(train_dataloader) * batch_size), batch_size*len(train_dataloader)))
 
     def evaluate(self, dataloader):

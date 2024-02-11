@@ -17,7 +17,7 @@ class RewardModel:
     def update(self):
         dataset = self.buffer.get_dataset()
         train, test = torch.utils.data.random_split(dataset, [int(0.8*len(dataset)), len(dataset) - int(0.8*len(dataset))])
-
+        print("length training datset {}".format(len(train)))
         self.predictor.train(DataLoader(train, shuffle=True, batch_size=512))
         self.predictor.evaluate(DataLoader(test, shuffle=True, batch_size=512))
 

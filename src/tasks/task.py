@@ -124,7 +124,7 @@ class Task:
                 if not self.debugging:
                     length=10000
                 else:
-                    length =10
+                    length =500
                 # augment feedback for each trajectory
                 D = augment_feedback_diff(feedback_traj,
                                           signal,
@@ -151,14 +151,7 @@ class Task:
             # Update reward model with augmented data
             self.reward_model.update()
 
-            if not self.debugging:
-                write=True
-            else:
-                write=False
 
-            # evaluate different rewards
-            path= prefix+'eval/{}/model_env.csv'.format(self.task_name)
-            self.evaluator.evaluate(model, self.env, path=path,seed=self.seed,lmbda=lmbda, feedback_size=len(unique_feedback),write=write)
 
             iteration += 1
 
