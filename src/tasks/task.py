@@ -50,7 +50,7 @@ class Task:
         # check the dtype of env state space
         self.state_dtype, self.action_dtype = check_dtype(self.env)
 
-    def run(self, noisy=False, disruptive=False, experiment_type='regular', summary_type='best_summary', expl_type='expl', lmbda=0.2, prob=0,epsilon=0):
+    def run(self, noisy=False, disruptive=False, experiment_type='regular', summary_type='best_summary', expl_type='expl', lmbda=0.2, prob=0,epsilon=0,prefix=''):
         finished_training = False
         iteration = 1
         self.evaluator.reset_reward_dict()
@@ -157,7 +157,7 @@ class Task:
                 write=False
 
             # evaluate different rewards
-            path='eval/{}/model_env.csv'.format(self.task_name)
+            path= prefix+'eval/{}/model_env.csv'.format(self.task_name)
             self.evaluator.evaluate(model, self.env, path=path,seed=self.seed,lmbda=lmbda, feedback_size=len(unique_feedback),write=write)
 
             iteration += 1
