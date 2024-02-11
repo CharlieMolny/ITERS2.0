@@ -120,17 +120,15 @@ def main():
     ### add whether it is sumulated feedback here
     # task_name = args.task
     
-    # debugging=check_environment()
-    # if debugging:
-    #     prefix=''
-    # else :
-    #     prefix='/content/ITERS2.0/'
-    debugging = False
-    prefix=''
+    debugging=check_environment()
+    if debugging:
+        prefix=''
+    else :
+        prefix='/content/ITERS2.0/'
 
     task_name="highway"
-    #run(task_name,debugging,prefix)
-    evaluate(task_name,prefix)
+    run(task_name,debugging,prefix)
+    #evaluate(task_name,prefix)
 
 if __name__ == '__main__':
     main()
