@@ -24,13 +24,15 @@ def check_environment():
 
 
 def run(task_name,debugging,prefix):
-
-
+    run_tailgaiting=False
     # print('Task = {}'.format(task_name))
 
     # Define paths
     model_path = prefix+'trained_models/{}'.format(task_name)
-    env_config_path =  prefix+'config/env/{}.json'.format(task_name)
+    if run_tailgaiting:
+        env_config_path=prefix+'config/env/{}_tailgaiting.json'.format(task_name)
+    else:     
+        env_config_path =  prefix+'config/env/{}.json'.format(task_name)
     model_config_path =  prefix+'config/model/{}.json'.format(task_name)
     task_config_path =  prefix+'config/task/{}.json'.format(task_name)
     dataset_path= prefix+'datasets/{}/'.format(task_name)
@@ -43,7 +45,7 @@ def run(task_name,debugging,prefix):
     if task_name == 'gridworld':
         env = Gridworld(env_config['time_window'], shaping=False)
     elif task_name == 'highway':
-        env = CustomHighwayEnv(shaping=False, time_window=env_config['time_window'])
+        env = CustomHighwayEnv(shaping=False, time_window=env_config['time_window'],run_tailgaiting=run_tailgaiting)
         env.config['right_lane_reward'] = env_config['right_lane_reward']
         env.config['lanes_count'] = env_config['lanes_count']
         env.reset()
@@ -54,19 +56,20 @@ def run(task_name,debugging,prefix):
     env.set_true_reward(env_config['true_reward_func'])
 
     eval_path =  prefix+'eval/{}/'.format(task_name)
-    max_iter = 10
+    max_iter = 20
 
     # initialize starting and expert.csv model
     init_model_path =  prefix+'trained_models/{}_init'.format(task_name)
     expert_path = prefix+ 'trained_models/{}_expert'.format(task_name)
     eval_path = prefix+ 'eval/{}/'.format(task_name)
 
-
+  
     model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter,debugging)
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter, debugging)
+    
 
     seeds = [0, 1, 2]
-    lmbdas = [0.05]   ##
+    lmbdas = [0.05,0.1]   ##
     epsilons=[0]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
@@ -120,8 +123,9 @@ def main():
     ### add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging=check_environment()
-    if debugging:
+    debugging= False
+    colab=check_environment()
+    if colab:
         prefix=''
     else :
         prefix='/content/ITERS2.0/'
@@ -129,6 +133,9 @@ def main():
     task_name="highway"
     run(task_name,debugging,prefix)
     #evaluate(task_name,prefix)
+
+   
+
 
 if __name__ == '__main__':
     main()

@@ -10,10 +10,11 @@ from src.feedback.feedback_processing import encode_trajectory
 
 class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
-    def __init__(self, shaping=False, time_window=5):
+    def __init__(self, shaping=False, time_window=5,run_tailgaiting=False):
         super().__init__()
         self.shaping = shaping
         self.time_window = time_window
+        self.run_tailgaiting=run_tailgaiting
 
         self.episode = []
 
@@ -30,6 +31,12 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         self.lmbda = 0.2
         self.epsilon=0
         self.lane_changed = []
+
+        if  self.run_tailgaiting:
+            self.config['tailgating'] = {}
+            self.config['tailgating']['threshold'] = 0
+            self.config['tailgating']['reward'] = 0
+
 
         # presence features are immutable
         self.immutable_features = [0]
@@ -50,6 +57,23 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
         self.lane = self.vehicle.target_lane_index[2] if isinstance(self.vehicle, ControlledVehicle) else self.vehicle.lane_index[2]
 
+        tailgating=False
+        if self.run_tailgaiting:
+            for i,other_vehicle in enumerate(self.road.vehicles[1:10]): ## must get rid of index 0, the closest vehicless appear first in the list 
+                other_vehicle_lane=other_vehicle.target_lane_index[2] if isinstance(self.road.vehicles, ControlledVehicle) else self.road.vehicles[1].target_lane_index[2]
+                if other_vehicle_lane !=self.lane or other_vehicle.crashed:
+                    continue
+                distance_between_vehicles=abs(other_vehicle.position[0]-self.vehicle.position[0]) 
+                threshold=self.config['tailgating']['threshold']
+                if distance_between_vehicles < threshold:
+                    tailgating =True
+            
+            tailgating_rew=0.0
+            if tailgating:
+                tailgating_rew=self.config['tailgating']['reward']
+            
+
+        
         self.lane_changed.append(self.lane != curr_lane)
 
         forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
@@ -60,31 +84,43 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         speed_rew = self.config["high_speed_reward"] * np.clip(scaled_speed, 0, 1)
 
         lane_change = sum(self.lane_changed[-self.time_window:]) >= self.max_changed_lanes
-        true_reward = self.calculate_true_reward(rew, lane_change)
+        true_reward = self.calculate_true_reward(rew, lane_change,tailgating)
 
         aug_rew = 0
         if self.shaping:
             aug_rew = self.augment_reward(action, self.state)
 
-        #print(f"augmented/human reward: {aug_rew}")    
-        ### lane changed reward is the reward from the human reward model 
         rew += aug_rew
         lane_change_weight=self.config['lane_change_reward']
         add_lane_change=lane_change * lane_change_weight
         rew += add_lane_change
 
-        info['rewards'] = {'collision_rew': coll_rew,
-                           'right_lane_rew': right_lane_rew,
-                           'speed_rew': speed_rew,
-                           'lane_change_rew': aug_rew, ### human reward model prediction  
-                           'lane_changed': lane_change,
-                           'true_reward': true_reward}
+        if self.run_tailgaiting:
+            rew += tailgating_rew    
+        
+            info['rewards'] = {'collision_rew': coll_rew,
+                            'right_lane_rew': right_lane_rew,
+                            'speed_rew': speed_rew,
+                            'tailgating_rew': tailgating_rew,
+                            'lane_change_rew': aug_rew,   
+                            'lane_changed': lane_change,
+                            'true_reward': true_reward}
+        else: 
+            info['rewards'] = {'collision_rew': coll_rew,
+                'right_lane_rew': right_lane_rew,
+                'speed_rew': speed_rew,
+                'lane_change_rew': aug_rew,   
+                'lane_changed': lane_change,
+                'true_reward': true_reward}
 
         return self.state, rew, done, info
 
-    def calculate_true_reward(self, rew, lane_change):
-        true_rew = rew + self.true_rewards['lane_change_reward'] * lane_change
+    def calculate_true_reward(self, rew, lane_change,tailgating):
+        tailgating_rew=0
+        if tailgating:
+            tailgating_rew=self.true_rewards['tailgating']['reward']
 
+        true_rew = rew + tailgating_rew + self.true_rewards['lane_change_reward'] * lane_change 
         return true_rew
 
     def reset(self):
@@ -138,11 +174,14 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
     def encode_state(self, state):
         return state[0].flatten()
     
- ##  new get weighted feedback
+    
+
+ ##  new get binary feedback
     def get_weighted_feedback(self, best_traj, expl_type):
         feedback_list = []
         count = 0
         for traj in best_traj:
+
             # Extract lane positions from each state in the trajectory
             lanes = [s.flatten()[2] for s, a in traj]
             # Determine if a lane change occurred between consecutive states
@@ -150,14 +189,13 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
             start = 0
             end = start + 2
-            negative_label_assigned = False  # Flag to track if negative label is assigned
+            negative_label_assigned = False  
 
             while end < len(changed_lanes):
                 while (end - start) <= self.time_window:
                     if end >= len(changed_lanes):
                         break
 
-                    # Count the number of lane changes in the current segment
                     changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
 
                     if changed and changed_lanes[start+1]:  
@@ -192,43 +230,11 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
             count += 1
         return feedback_list, True
+    
 
-##### original
-    def get_feedback(self, best_traj, expl_type):
-        feedback_list = []
 
-        count=0
-        for traj in best_traj:
-            lanes = [s.flatten()[2] for s, a in traj]
-            changed_lanes = [abs(lanes[i] - lanes[i-1]) > 0.1 if i >= 1 else False for i, _ in enumerate(lanes)]
 
-            start = 0
-            end = start + 2
 
-            while end < len(changed_lanes):
-                while (end - start) <= self.time_window:
-                    if end >= len(changed_lanes):
-                        break
-
-                    changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
-
-                    if changed and changed_lanes[start+1]:
-
-                        print("trajectory number {}".format(count))
-                        feedback_list.append(('s', traj[start:end], -1, [2 + (i*self.state_len) for i in range(0, end-start)], end-start))
-                        start = end
-                        end = start + 2
-                        if expl_type == 'expl':
-                            break
-                    else:
-                        end += 1
-
-                start += 1
-                end = start + 2
-            count +=1
-
-        print('Feedback: {}'.format(feedback_list))
-        return feedback_list, True
 
     def set_lambda(self, l):
         self.lmbda = l
