@@ -17,8 +17,15 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         self.run_tailgaiting=run_tailgaiting
 
         self.episode = []
-
-        self.state_len = 5
+        self.number_of_features=5
+        #number of states= 5 , number_of features
+        #self.state_len = 5 ##need to change this
+        if self.run_tailgaiting:
+            self.number_of_states=5
+            
+        else:
+            self.number_of_states =1
+        self.state_len = self.number_of_features*self.number_of_states  
         self.lows = np.zeros((self.state_len, ))
         self.highs = np.ones((self.state_len, ))
 
@@ -126,7 +133,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
     def reset(self):
         self.episode = []
         self.lane_changed = []
-        self.state = super().reset()
+        self.state= super().reset()
 
         self.lane = self.vehicle.target_lane_index[2] if isinstance(self.vehicle, ControlledVehicle) else self.vehicle.lane_index[2]
 
@@ -172,12 +179,90 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         return np.random.uniform(self.lows, self.highs, (self.state_len, ))
 
     def encode_state(self, state):
-        return state[0].flatten()
-    
-    
+        if self.run_tailgaiting:
+            encoded_state=state.flatten() ### original
+        else:
+            encoded_state=state[0].flatten() 
+        return encoded_state
+          
+    def valid_feature_indices(self,rule):
+        return  [index + 1 for index, (feature, details) in enumerate(rule['features'].items()) if details['Expression'] is not None]
+
+
+    def get_tailgaiting_feedback(self, best_traj, expl_type):
+        feedback_list=[]
+        for traj in best_traj:
+
+            threshold=1
+            sensitivity=0.1
+            states= [s for s,a in traj]
+
+            very_negative_signal=-4
+            feedback_added = False
+            
+            for i,state in enumerate(states):
+                # Skip the rest of the trajectory if feedback has already been added
+                if feedback_added:
+                    break
+                        
+                ego_vehicle_x, ego_vehicle_y = state[0][1], state[0][2]
+                for location in state[1:]:
+                    other_vehicle_x, other_vehicle_y=location[1],location[2]
+                    if abs(other_vehicle_y-ego_vehicle_y) >0.1: ### vehicles are in different lanes
+                        continue
+                    if abs(other_vehicle_x-ego_vehicle_x) < threshold:
+                        print("Very Negative Trajectory")
+
+                        rule = {
+                                'quant': 's',
+                                'features': {
+                                    'Feature1': {
+                                        'Expression': {
+                                            'type': '-',  
+                                            'abs': True, 
+                                            'threshold': threshold  
+                                        }
+                                    },
+                                    'Feature2': {
+                                        'Expression': '==',
+                                        'sensitivity': sensitivity
+
+                                    },
+                                    'Feature3': {
+                                        'Expression': None  
+                                    },
+                                    'Feature4': {
+                                        'Expression': None  
+                                    }
+                                }
+                            }   
+                        start=max(0, i - (self.time_window//2))
+                        end=min(len(traj), i +  (self.time_window//2) + 1)
+                        valid_feature_indices=self.valid_feature_indices(rule)
+
+
+                        total_length =self.number_of_states*(end-start)  # Total length up to which we want to mark indices
+
+                        # Calculate the number of states needed to cover the total length
+                        num_states_needed = total_length // (self.state_len // self.number_of_features)
+
+                        important_features = [
+                            index + (i * (self.state_len // self.number_of_features))
+                            for i in range(num_states_needed)
+                            for index in valid_feature_indices
+                        ]
+
+
+                        feedback=('s', traj[ start:end], very_negative_signal,important_features,rule,self.time_window) 
+                        feedback_list.append(feedback)
+                        feedback_added = True
+                        break
+        return feedback_list, True
+
+   
 
  ##  new get binary feedback
-    def get_weighted_feedback(self, best_traj, expl_type):
+    def get_lane_feedback(self, best_traj, expl_type):
         feedback_list = []
         count = 0
         for traj in best_traj:
@@ -204,7 +289,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                         signal=-1
                         if random.random() < self.epsilon:
                                signal=-signal
-                        feedback_list.append(('s', traj[start:end], signal, [2 + (i*self.state_len) for i in range(0, end-start)], end-start))
+                        feedback_list.append(('s', traj[start:end], signal, [2 + (i*self.state_len) for i in range(0, end-start)], {},end-start))
                         start = end  # Move to the next segment
                         end = start + 2
                         if expl_type == 'expl':
@@ -226,15 +311,16 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                     signal=1
                     if random.random() < self.epsilon:
                         signal=-signal
-                feedback_list.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],upperbound-lowerbound ))
+                feedback_list.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],{},upperbound-lowerbound ))
 
             count += 1
         return feedback_list, True
-    
 
-
-
-
+    def get_feedback(self, best_traj, expl_type):
+        
+        #feedback,_= self.get_tailgaiting_feedback( best_traj, expl_type)
+        feedback,_= self.get_lane_feedback( best_traj, expl_type)
+        return feedback, True
 
     def set_lambda(self, l):
         self.lmbda = l

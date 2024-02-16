@@ -88,7 +88,7 @@ class Task:
 
             model.learn(total_timesteps=feedback_freq)
             model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon,iteration))
-
+            
             
             # print the best trajectories
             best_traj = present_successful_traj(model, self.env, summary_type, n_traj=10)
@@ -111,9 +111,9 @@ class Task:
 
             count=0    
             unique_feedback = []
-            for feedback_type, feedback_traj, signal, important_features, timesteps in feedback:
+            for feedback_type, feedback_traj, signal, important_features,rules, timesteps in feedback:
                 count +=1
-                important_features, actions, rules = generate_important_features(important_features, self.env.state_len, feedback_type, self.time_window, feedback_traj)
+                important_features, actions, rules = generate_important_features(important_features, self.env.state_len, feedback_type, self.time_window, feedback_traj,rules)
                 unique = check_is_unique(unique_feedback, feedback_traj, timesteps, self.time_window, self.env, important_features, expl_type,signal) ##signal has now been addeed to important features 
 
                 if not unique:
@@ -147,10 +147,10 @@ class Task:
                                                 rules,
                                                 iteration)
                     
-
+            
             # Update reward model with augmented data
             self.reward_model.update()
-
+            self.evaluator.evaluate(model, self.env, path=r'C:\Users\charl\Desktop\Dissertation\Technical Part\RePurpose_iters\13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
 
 
             iteration += 1

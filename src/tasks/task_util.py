@@ -105,9 +105,9 @@ def train_expert_model(env, env_config, model_config, expert_path, eval_path, fe
 
         model.save(expert_path)
     
-    if not debugging:
-        best_traj = present_successful_traj(model, env, n_traj=10)
-        visualize_feature(best_traj, 0, plot_actions=True, title='Model trained on the true reward')
+    # if not debugging:
+    #     best_traj = present_successful_traj(model, env, n_traj=10)
+    #     visualize_feature(best_traj, 0, plot_actions=True, title='Model trained on the true reward')
 
     # reset original config
     env.configure(orig_config)
@@ -150,12 +150,13 @@ def train_model(env, model_config, path, eval_path, feedback_freq, max_iter, deb
         model.save(path)
 
       
-    # evaluator = Evaluator()
-    # avg_mo = evaluator.evaluate(model, env, path=os.path.join(eval_path, 'model_env.csv'), seed=0, write=True)
-    # print('Mean reward for objectives = {} for initial model = {}'.format(env.config, avg_mo))
-    if not debugging:
-        best_traj = present_successful_traj(model, env, n_traj=10)
-        visualize_feature(best_traj, 0, plot_actions=True, title='Model trained with environment reward')
+
+    # if not debugging:
+    #     evaluator = Evaluator()
+    #     avg_mo = evaluator.evaluate(model, env, path=os.path.join(eval_path, 'model_env.csv'), seed=0, write=True)
+    #     print('Mean reward for objectives = {} for initial model = {}'.format(env.config, avg_mo))
+    #     best_traj = present_successful_traj(model, env, n_traj=10)
+    #     visualize_feature(best_traj, 0, plot_actions=True, title='Model trained with environment reward')
 
     return model
 

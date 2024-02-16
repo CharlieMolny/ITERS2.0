@@ -56,7 +56,8 @@ def get_ep_traj(model, env):
 
     while not done:
         action, _ = model.predict(obs, deterministic=True)
-        traj.append((obs, action))
+        new_pair=(obs, action)
+        traj.append(new_pair)
 
         obs, rew, done, _ = env.step(action)
         total_rew += rew
@@ -114,7 +115,7 @@ def get_input(best_traj):
 
 def gather_feedback(best_traj, time_window, env, disruptive=False, noisy=False, prob=0, expl_type='expl', auto=False):
     if auto:
-        feedback_list, cont = env.get_weighted_feedback(best_traj, expl_type=expl_type) ## changed this
+        feedback_list, cont = env.get_feedback(best_traj, expl_type=expl_type) # feedback is now weighted
     else:
         feedback_list, cont = get_input(best_traj)
 
@@ -193,6 +194,7 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
 
         D = np.tile(traj_enc, (length, 1))
 
+
         # add noise to important features if they are continuous
         if state_dtype != 'int':
             # adding noise for continuous state features
@@ -225,7 +227,8 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
 
         D = np.multiply(rand_D, random_mask) + np.multiply(inverse_random_mask, D)
 
-        for rule in rules:
+        #D, _ = satisfy(D, rules, time_window)
+        for rule in rules:  # come back to this
             D, _ = satisfy(D, rule, time_window)
 
     else:
@@ -246,12 +249,24 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
     return dataset
 
 
+
 def satisfy(D, r, time_window):
     if r['quant'] == 'a':
+        return satisfyAction(D, r, time_window)
+    
+    if r['quant']=='s':
+        return satisfyState(D, r, time_window)
+
+def satisfyAction(D, r, time_window):
+    
         start = -(time_window+1)
 
         if r['limit_sign'] == '>':
-            satisfies = np.sum(D[:, start:-1] > r['filter_num'], axis=1) > r['limit']
+            Dataset=D[:, start:-1]
+            filterNumber=r['filter_num']
+            limit=r['limit']
+            sum = np.sum(Dataset > filterNumber, axis=1) 
+            satisfies = sum>limit
         elif r['limit_sign'] == '<':
             satisfies = np.sum(D[:, start:-1] > r['filter_num'], axis=1) < r['limit']
         elif r['limit_sign'] == '>=':
@@ -268,7 +283,83 @@ def satisfy(D, r, time_window):
             return D[satisfies], []
 
 
-def decode_rule(rule):  ### this could change to a tree
+def satisfyState(D, r, time_window):
+    start = -(time_window+1)
+    
+    return D,[]
+
+
+def check_rules(state1, state2, rules):
+    results = {}
+    features = rules.get('features', {})
+
+    for feature, details in features.items():
+        expression = details.get('Expression')
+        
+        if expression is None:
+            continue  
+  
+        if isinstance(expression, dict) and expression.get('type') == '-':
+            diff = state1[feature] - state2[feature]
+            
+            if expression.get('abs', False): 
+                diff = abs(diff)
+
+            threshold = expression.get('threshold', float('inf')) 
+            if expression.get('limit_sign')=='<':
+                results[feature] = diff < threshold
+
+            elif expression.get('limit_sign')=='>':
+                results[feature] = diff > threshold        
+            elif  expression.get('limit_sign')=='<=':
+                results[feature] = diff <= threshold
+
+            elif expression.get('limit_sign')=='>=':
+                results[feature] = diff >= threshold
+
+        elif isinstance(expression, dict) and expression.get('type') == '+':
+            sum = state1[feature] + state2[feature]
+            
+            if expression.get('abs', False): 
+                sum = abs(sum)
+            threshold = expression.get('threshold', float('inf')) 
+            if expression.get('limit_sign')=='<':
+                results[feature] = sum < threshold
+
+            elif expression.get('limit_sign')=='>':
+                results[feature] = sum > threshold        
+            elif  expression.get('limit_sign')=='<=':
+                results[feature] = sum <= threshold
+
+            elif expression.get('limit_sign')=='>=':
+                results[feature] = sum >= threshold
+        
+        # For equality checks
+        elif expression == '==':
+            results[feature] = state1[feature] == state2[feature]
+
+        
+
+            
+
+    return results
+
+
+
+            
+            
+
+        
+
+
+                
+
+              
+
+
+
+
+def decode_rule(rule):  
     ''' Decode the rule from string to a dict form '''
     agg = rule.split('(')[0]
     term = rule.split('(')[1].split(')')[0]
@@ -317,7 +408,7 @@ def encode_trajectory(traj, state, timesteps, time_window, env):
     states = []
     actions = []
 
-    assert len(traj) <= time_window #### this is causing issues 
+    assert len(traj) <= time_window 
 
     curr = 1
     for s, a in traj:
@@ -344,18 +435,19 @@ def encode_trajectory(traj, state, timesteps, time_window, env):
     return enc
 
 
-def generate_important_features(important_features, state_len, feedback_type, time_window, feedback_traj):
+def generate_important_features(important_features, state_len, feedback_type, time_window, feedback_traj,rules):
     actions = feedback_type == 'a'
 
     imf = []
-    rules = []
+
 
     for i in important_features:
         if isinstance(i, int):
             imf.append(i)
-
-        if isinstance(i, str):
-            rules.append(decode_rule(i))
+    if not isinstance(rules,dict):       
+        for rule in rules:
+            if isinstance(rule, str):
+                    rules.append(decode_rule(rule))
 
     traj_len = len(feedback_traj)
     imf += [(time_window + 1) * state_len + time_window]  # add timesteps as important

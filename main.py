@@ -69,7 +69,7 @@ def run(task_name,debugging,prefix):
     
 
     seeds = [0, 1, 2]
-    lmbdas = [0.05,0.1]   ##
+    lmbdas = [0.1,0.2]   ##
     epsilons=[0]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
@@ -93,10 +93,10 @@ def run(task_name,debugging,prefix):
 def evaluate(task_name,prefix):
         # # visualizing true reward for different values of lambda
     eval_path =prefix +   'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
-    best_summary_path = prefix+  eval_path
-    rand_summary_path = prefix+  'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
-    expert_path = prefix +   'eval/{}/expert'.format(task_name)
-    model_env_path = prefix +  'eval/{}/model_env.csv'.format(task_name)
+    best_summary_path = prefix + eval_path
+    rand_summary_path = prefix + 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
+    expert_path = prefix + 'eval/{}/expert'.format(task_name)
+    model_env_path = prefix + 'eval/{}/model_env.csv'.format(task_name)
     
 
     title = 'ITERS for different values of \u03BB in {} task'.format(task_name)
@@ -123,7 +123,7 @@ def main():
     ### add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= False
+    debugging= True
     colab=check_environment()
     if colab:
         prefix=''
@@ -131,6 +131,7 @@ def main():
         prefix='/content/ITERS2.0/'
 
     task_name="highway"
+    #task_name="inventory"    
     run(task_name,debugging,prefix)
     #evaluate(task_name,prefix)
 
