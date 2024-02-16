@@ -123,7 +123,7 @@ def main():
     ### add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= True
+    debugging= False
     colab=check_environment()
     if colab:
         prefix=''
