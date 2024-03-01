@@ -57,6 +57,9 @@ class ReplayBuffer:
         self.curr_iter = iter
 
     def  update(self, new_data, signal, important_features, datatype, actions, rules, iter): 
+        print("Original Dataset shape: {}".format(self.dataset.tensors[0].shape))
+        print("New Dataset shape : {}".format(new_data.tensors[0].shape))
+        
         full_dataset = torch.cat([self.dataset.tensors[0], new_data.tensors[0]])
         curr_dataset = self.dataset
         # print("size of full dataset {}".format(len(full_dataset)))
@@ -123,7 +126,10 @@ class ReplayBuffer:
 
     def closest(self, x, data, important_features, rules):
         if len(rules):
-            close_data, close_indices = satisfy(np.array(data), rules[0], self.time_window)
+            if rules['quant']=='a':
+                close_data, close_indices = satisfy(np.array(data), rules[0], self.time_window)
+            elif rules['quant']=='s':  
+                 close_data, close_indices = satisfy(np.array(data), rules, self.time_window)
             return close_indices, np.zeros((len(close_indices), ))
 
         difference = torch.mean(abs(data[:, important_features] - x[important_features]) * 1.0, axis=1)

@@ -173,7 +173,7 @@ def disrupt(feedback, prob):
         return feedback
 
 
-def augment_feedback_diff(traj, signal, important_features, rules, timesteps, env, time_window, actions, datatype, expl_type='expl', length=100):
+def augment_feedback_diff(traj, signal, important_features,rules,timesteps, env, time_window, actions, datatype, expl_type='expl', length=100):
     print('Augmenting feedback...')
     if expl_type == 'expl':
         state_dtype, action_dtype = datatype
@@ -185,7 +185,7 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
         #### feature label should be immutable
         immutable_features = [im_f + (state_len * i) for i in range(traj_len) for im_f in env.immutable_features]
 
-        important_features += immutable_features
+        important_features =important_features+ immutable_features
 
         # generate mask to preserve important features
         random_mask = np.ones((length, enc_len))
@@ -193,6 +193,7 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
         inverse_random_mask = 1 - random_mask
 
         D = np.tile(traj_enc, (length, 1))
+        print("D is of type: {} at this point ".format(D.dtype))
 
 
         # add noise to important features if they are continuous
@@ -227,9 +228,9 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
 
         D = np.multiply(rand_D, random_mask) + np.multiply(inverse_random_mask, D)
 
-        #D, _ = satisfy(D, rules, time_window)
-        for rule in rules:  # come back to this
-            D, _ = satisfy(D, rule, time_window)
+        for rule in rules:
+            D, _ = satisfy(D, rule,env, time_window,traj_len)
+        
 
     else:
         traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
@@ -250,12 +251,12 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
 
 
 
-def satisfy(D, r, time_window):
-    if r['quant'] == 'a':
-        return satisfyAction(D, r, time_window)
+def satisfy(D, rules,env, time_window,traj_len):
+    if rules['quant'] == 'a':
+        return satisfyAction(D, rules, time_window)
     
-    if r['quant']=='s':
-        return satisfyState(D, r, time_window)
+    if rules['quant']=='s':
+        return satisfyState(D,rules,env, traj_len)
 
 def satisfyAction(D, r, time_window):
     
@@ -283,66 +284,86 @@ def satisfyAction(D, r, time_window):
             return D[satisfies], []
 
 
-def satisfyState(D, r, time_window):
-    start = -(time_window+1)
-    
-    return D,[]
+def satisfyState(D,r,env, traj_len):
+
+
+    filtered_D = []
+    for trajectory in D:
+        segments = [trajectory[i:i + env.number_of_features] for i in range(0, traj_len*env.number_of_features, env.number_of_features)]
+        isRuleMet=False
+        ego_segment=segments[0]
+        for segment in segments[1:]:
+            if check_rules(ego_segment,segment,r):
+                isRuleMet=True ## if any of the state relationships between the ego and any other agent in the environment fit then the rule is met
+                break
+            
+        if isRuleMet:
+            filtered_D.append(trajectory)     
+
+
+    return np.array(filtered_D),[]
 
 
 def check_rules(state1, state2, rules):
     results = {}
     features = rules.get('features', {})
+    #feature_indices=env.get_rule_feature_list(traj_len,rules)
 
-    for feature, details in features.items():
+
+    for feature_index,(feature, details) in enumerate(features.items(),start=1):
         expression = details.get('Expression')
         
         if expression is None:
             continue  
   
         if isinstance(expression, dict) and expression.get('type') == '-':
-            diff = state1[feature] - state2[feature]
+            diff = state1[feature_index] - state2[feature_index]
             
             if expression.get('abs', False): 
                 diff = abs(diff)
 
             threshold = expression.get('threshold', float('inf')) 
             if expression.get('limit_sign')=='<':
-                results[feature] = diff < threshold
+                results[feature_index] = diff < threshold
 
             elif expression.get('limit_sign')=='>':
-                results[feature] = diff > threshold        
+                results[feature_index] = diff > threshold        
             elif  expression.get('limit_sign')=='<=':
-                results[feature] = diff <= threshold
+                results[feature_index] = diff <= threshold
 
             elif expression.get('limit_sign')=='>=':
-                results[feature] = diff >= threshold
+                results[feature_index] = diff >= threshold
 
         elif isinstance(expression, dict) and expression.get('type') == '+':
-            sum = state1[feature] + state2[feature]
+            sum = state1[feature_index] + state2[feature_index]
             
             if expression.get('abs', False): 
                 sum = abs(sum)
             threshold = expression.get('threshold', float('inf')) 
             if expression.get('limit_sign')=='<':
-                results[feature] = sum < threshold
+                results[feature_index] = sum < threshold
 
             elif expression.get('limit_sign')=='>':
-                results[feature] = sum > threshold        
+                results[feature_index] = sum > threshold        
             elif  expression.get('limit_sign')=='<=':
-                results[feature] = sum <= threshold
+                results[feature_index] = sum <= threshold
 
             elif expression.get('limit_sign')=='>=':
-                results[feature] = sum >= threshold
+                results[feature_index] = sum >= threshold
         
         # For equality checks
-        elif expression == '==':
-            results[feature] = state1[feature] == state2[feature]
+        elif expression.get('type') == '==':
+            sensitivity = expression.get('sensitivity')
+            results[feature_index] = abs(state1[feature_index] - state2[feature_index]) < sensitivity
 
         
 
+    for result in results:
+        if result ==False :
+            return False
             
-
-    return results
+    
+    return True
 
 
 

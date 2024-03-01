@@ -80,7 +80,7 @@ def visualize_rewards(rew_dict, title='', xticks=None):
         plt.show()
 
 def visualize_best_experiment(path, expert_path, model_env_path, task_name, title):
-    df = pd.read_csv(path, header=0)
+    df = pd.read_csv(path, header=0,error_bad_lines=False, warn_bad_lines=True)
 
     expert_df = pd.read_csv(expert_path)
     model_env_df = pd.read_csv(model_env_path)

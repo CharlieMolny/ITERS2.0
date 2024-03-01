@@ -1,5 +1,4 @@
 from stable_baselines3 import DQN
-
 from src.envs.custom.gridworld import Gridworld
 from src.envs.custom.highway import CustomHighwayEnv
 from src.envs.custom.inventory import Inventory
@@ -24,18 +23,19 @@ def check_environment():
 
 
 def run(task_name,debugging,prefix):
+
     run_tailgaiting=False
     # print('Task = {}'.format(task_name))
-
-    # Define paths
-    model_path = prefix+'trained_models/{}'.format(task_name)
+    rt=''
     if run_tailgaiting:
-        env_config_path=prefix+'config/env/{}_tailgaiting.json'.format(task_name)
-    else:     
-        env_config_path =  prefix+'config/env/{}.json'.format(task_name)
+        rt='_tailgating'
+    # Define paths
+    model_path = prefix+'trained_models/{}{}'.format(task_name,rt)
+
+    env_config_path =  prefix+'config/env/{}{}.json'.format(task_name,rt)
     model_config_path =  prefix+'config/model/{}.json'.format(task_name)
     task_config_path =  prefix+'config/task/{}.json'.format(task_name)
-    dataset_path= prefix+'datasets/{}/'.format(task_name)
+    dataset_path= prefix+'datasets/{}{}/'.format(task_name,rt)
 
     # Load configs
     env_config = load_config(env_config_path)
@@ -55,13 +55,13 @@ def run(task_name,debugging,prefix):
     # set true reward function
     env.set_true_reward(env_config['true_reward_func'])
 
-    eval_path =  prefix+'eval/{}/'.format(task_name)
+
     max_iter = 20
 
     # initialize starting and expert.csv model
     init_model_path =  prefix+'trained_models/{}_init'.format(task_name)
-    expert_path = prefix+ 'trained_models/{}_expert'.format(task_name)
-    eval_path = prefix+ 'eval/{}/'.format(task_name)
+    expert_path = prefix+ 'trained_models/{}_expert{}'.format(task_name,rt)
+    eval_path = prefix+ 'eval/{}{}/'.format(task_name,rt)
 
   
     model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter,debugging)
@@ -69,8 +69,8 @@ def run(task_name,debugging,prefix):
     
 
     seeds = [0, 1, 2]
-    lmbdas = [0.1,0.2]   ##
-    epsilons=[0]
+    lmbdas = [0.2]   ##
+    epsilons=[0.5]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
 
@@ -82,10 +82,10 @@ def run(task_name,debugging,prefix):
                         print('Running experiment with summary = {}, expl = {}, lambda = {}, seed = {}, epsilon = {}'.format(sum, expl, l, s,e))
                         seed_everything(s)
 
-                        eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)
+                        eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
@@ -93,14 +93,20 @@ def run(task_name,debugging,prefix):
 def evaluate(task_name,prefix):
         # # visualizing true reward for different values of lambda
     eval_path =prefix +   'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
+    original_eval=prefix+'eval/{}/best_summary_expl/IRS_original.csv'.format(task_name)
     best_summary_path = prefix + eval_path
     rand_summary_path = prefix + 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
     expert_path = prefix + 'eval/{}/expert'.format(task_name)
     model_env_path = prefix + 'eval/{}/model_env.csv'.format(task_name)
     
 
-    title = 'ITERS for different values of \u03BB in {} task'.format(task_name)
-    visualize_best_experiment(eval_path, expert_path, model_env_path, task_name, title)    
+    
+    eval_paths=[[eval_path,'WITERS'],[original_eval,'ITERS']]
+
+    for eval,title in eval_paths:
+        title = '{} for different values of \u03BB in {} task'.format(title,task_name)
+
+        visualize_best_experiment(eval, expert_path, model_env_path, task_name, title)    
 
 
 
@@ -117,10 +123,10 @@ def evaluate(task_name,prefix):
 
 
 def main():
-        # parser = argparse.ArgumentParser()  
+    # parser = argparse.ArgumentParser()  
     # parser.add_argument('--task') 
     # args = parser.parse_args()
-    ### add whether it is sumulated feedback here
+    # ## add whether it is sumulated feedback here
     # task_name = args.task
     
     debugging= False

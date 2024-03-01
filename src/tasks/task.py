@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq 
@@ -37,7 +37,7 @@ class Task:
 
         self.init_model = self.model_env if self.init_type == 'train' else None
         ### need to add path variable
-        init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type,debugging=self.debugging)
+        init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type,debugging=self.debugging,run_tailgaiting=run_tailgating)
 
         self.reward_model = RewardModel(self.time_window, env_config['input_size'])
 
@@ -65,6 +65,7 @@ class Task:
             else:
                 feedback_freq=self.feedback_freq
 
+            self.env.set_epsilon(epsilon)
             try:    
                 exploration_fraction = max(0.05, 0.8 - 0.1 * (iteration / 10))
                 model = DQN.load(model_path, verbose=0, seed=random.randint(0, 100), exploration_fraction=exploration_fraction, env=self.env)
@@ -73,7 +74,7 @@ class Task:
                 self.env.set_shaping(True)
                 self.env.set_lambda(lmbda)
                 self.env.set_reward_model(self.reward_model)
-                self.env.set_epsilon(epsilon)
+                
 
             except FileNotFoundError:
                 self.env.set_lambda(lmbda)
@@ -154,6 +155,11 @@ class Task:
 
 
             iteration += 1
+            
+            #self.evaluator.evaluate(model, self.env, path=r'C:\Users\charl\Desktop\Dissertation\Technical Part\RePurpose_iters\13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+
+
+            
 
 
 

@@ -23,17 +23,15 @@ def check_dtype(env):
     return state_dtype, action_dtype
 
 
-def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, expl_type='expl',debugging=False):
-###probably best to not use loaded buffer,-- mainly done for debugging purposes
-   
-    try:
-        # if not debugging: 
-        #     raise NotDebugging
-        dataset_file_path=dataset_path+'data.pkl' 
-        # Open the file in binary read mode
-        with open(dataset_file_path, 'rb') as file:
-            # Load the data from the file
-            dataset = pickle.load(file)
+def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000,task_name='', expl_type='expl',debugging=False,run_tailgaiting=True):
+    if run_tailgaiting:
+        dataset_file_path=dataset_path+'data.pt'
+    else:
+        dataset_file_path=dataset_path+'data.pkl'
+
+
+    try:    
+        dataset=torch.load(dataset_file_path)
         print("loaded initial buffer")
 
     except :
@@ -75,14 +73,12 @@ def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000, ex
 
         
         os.makedirs(dataset_path, exist_ok=True)  # Ensure the directory exists
-  
-        try: 
-            torch.save(dataset, dataset_path)
 
+        try: 
+            torch.save(dataset,dataset_file_path)
         except PermissionError:
             print("Could not save locally due to permission error")
         
-
 
     return dataset
 
