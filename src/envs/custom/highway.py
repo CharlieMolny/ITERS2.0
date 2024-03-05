@@ -278,8 +278,6 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         return tailgaiting_feedback
 
    
-
- ##  new get binary feedback
     def get_lane_feedback(self, traj, expl_type,count):
         lane_feedback=[] 
         thresholdY=0.1
@@ -314,44 +312,138 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
             end = start + 2  
 
         if not negative_label_assigned:
-            
             lowerbound, upperbound = 0, len(traj)
             if len(traj) > self.time_window:
                 start = random.randint(0, len(traj) - self.time_window)  # Random start index
                 lowerbound, upperbound = start, start + self.time_window
                 signal=+1
-                randomNum=random.random()
-                if  randomNum>self.epsilon:   ## add feedback for P(1-epsilon)
-                    lane_feedback.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],{},upperbound-lowerbound ))
-                    print("Positive Trajectory Number: {}".format(count))
+                lane_feedback.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],{},upperbound-lowerbound ))
+                print("Positive Trajectory Number: {}".format(count))
 
         
         return lane_feedback
 
+    def get_equilibrium_feedback(self, best_traj, expl_type):
+        negative_trajectories = []
+        positive_trajectories = []
+        negative_feedback_list = []
+        positive_feedback_list = []
 
+        for count, traj in enumerate(best_traj):
+            negative_feedback, negative_label_assigned = self.get_negative_feedback(traj, expl_type, count)
+            if negative_label_assigned:
+                negative_feedback_list.append(negative_feedback)
+                negative_trajectories.append(count)
+
+        target_positive_feedback_count = int(self.epsilon * len(negative_feedback_list))
+        available_trajectories_for_positive = [i for i in range(len(best_traj)) if i not in negative_trajectories]
+        max_positive_feedback = min(target_positive_feedback_count, len(available_trajectories_for_positive))
+
+        for count in available_trajectories_for_positive[:max_positive_feedback]:
+            traj = best_traj[count]
+            positive_feedback, positive_label_assigned = self.get_positive_feedback(traj, expl_type, count)
+            if positive_label_assigned:
+                positive_feedback_list.append(positive_feedback)
+                positive_trajectories.append(count)
+
+        return negative_feedback_list+positive_feedback_list
+               
+        
+
+    def get_positive_feedback(self,traj,expl_type,count):
+        lowerbound, upperbound = 0, len(traj)
+        if len(traj) > self.time_window:
+            start = random.randint(0, len(traj) - self.time_window)  # Random start index
+            lowerbound, upperbound = start, start + self.time_window
+            signal=+1
+            positive_lane_feedback=(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],{},upperbound-lowerbound ))
+            print("Positive Trajectory Number: {}".format(count))
+        return positive_lane_feedback,True
+
+
+    def get_negative_feedback(self, traj, expl_type,count):
+        lane_feedback=[] 
+        thresholdY=0.1
+        
+
+        lanes = [s.flatten()[2] for s, a in traj]
+
+        changed_lanes = [abs(lanes[i] - lanes[i-1]) > thresholdY if i >= 1 else False for i, _ in enumerate(lanes)] ## finding different lanes
+
+        start = 0
+        end = start + 2
+        negative_label_assigned = False  
+
+        while end < len(changed_lanes):
+            while (end - start) <= self.time_window:
+                if end >= len(changed_lanes):
+                    break
+
+                changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
+                if changed and changed_lanes[start+1]:  
+                    print("Negative Trajectory number {}".format(count))
+                    negative_label_assigned = True  
+                    signal=-1
+                    lane_feedback=(('s', traj[start:end], signal, [2 + (i*self.state_len) for i in range(0, end-start)], {},end-start))
+                    start = end  
+                    end = start + 2
+                    if expl_type == 'expl':
+                        break
+                else:
+                    end += 1  
+            start += 1  
+            end = start + 2  
+      
+        return lane_feedback,negative_label_assigned
+
+
+    # def get_feedback(self, best_traj, expl_type):
+    #     feedback=[]
+    #     tail_feedback_list=[]
+    #     lane_feedback_list=[]
+
+    #     for count,traj in enumerate(best_traj):
+    #         if self.run_tailgaiting:
+    #             tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
+    #             if tail_feedback:
+    #                 tail_feedback_list.append(tail_feedback[0]) 
+    #             if not tail_feedback :
+    #                 lane_feedback=self.get_lane_feedback(traj,expl_type,count)
+    #                 if lane_feedback:
+    #                     lane_feedback_list.append(lane_feedback[0])
+
+    #         else:
+    #             lane_feedback=self.get_lane_feedback(traj,expl_type,count)
+    #             if lane_feedback:
+    #                 lane_feedback_list.append(lane_feedback[0])
+            
+    #     feedback = tail_feedback_list+lane_feedback_list
+    #     return feedback, True
+    
+    
 
     def get_feedback(self, best_traj, expl_type):
         feedback=[]
         tail_feedback_list=[]
-        lane_feedback_list=[]
+        lane_trajectories_list=[]
 
         for count,traj in enumerate(best_traj):
             if self.run_tailgaiting:
                 tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
                 if tail_feedback:
                     tail_feedback_list.append(tail_feedback[0]) 
-                if not tail_feedback :
-                    lane_feedback=self.get_lane_feedback(traj,expl_type,count)
-                    if lane_feedback:
-                        lane_feedback_list.append(lane_feedback[0])
-
+                else :
+                    lane_trajectories_list.append(traj)
+           
             else:
-                lane_feedback=self.get_lane_feedback(traj,expl_type,count)
-                if lane_feedback:
-                    lane_feedback_list.append(lane_feedback[0])
-            
-        feedback = tail_feedback_list+lane_feedback_list
+                lane_trajectories_list.append(traj)
+        
+        lane_feedback_list=self.get_equilibrium_feedback(lane_trajectories_list, expl_type)
+        feedback=tail_feedback_list+lane_feedback_list
+
         return feedback, True
+
+        
 
     def set_lambda(self, l):
         self.lmbda = l

@@ -61,7 +61,7 @@ class Task:
             #if debugging:
             model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon,iteration-1)
             if self.debugging:
-                feedback_freq=10
+                feedback_freq=1000
             else:
                 feedback_freq=self.feedback_freq
 
