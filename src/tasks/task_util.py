@@ -147,12 +147,12 @@ def train_model(env, model_config, path, eval_path, feedback_freq, max_iter, deb
 
       
 
-    # if not debugging:
-    #     evaluator = Evaluator()
-    #     avg_mo = evaluator.evaluate(model, env, path=os.path.join(eval_path, 'model_env.csv'), seed=0, write=True)
-    #     print('Mean reward for objectives = {} for initial model = {}'.format(env.config, avg_mo))
-    #     best_traj = present_successful_traj(model, env, n_traj=10)
-    #     visualize_feature(best_traj, 0, plot_actions=True, title='Model trained with environment reward')
+    if not debugging:
+        evaluator = Evaluator()
+        avg_mo = evaluator.evaluate(model, env, path=os.path.join(eval_path, 'model_env.csv'), seed=0, write=True)
+        print('Mean reward for objectives = {} for initial model = {}'.format(env.config, avg_mo))
+        best_traj = present_successful_traj(model, env, n_traj=10)
+        visualize_feature(best_traj, 0, plot_actions=True, title='Model trained with environment reward')
 
     return model
 

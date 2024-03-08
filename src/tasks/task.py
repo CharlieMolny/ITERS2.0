@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq 
@@ -31,6 +31,7 @@ class Task:
         self.seed = seed
         self.init_type = env_config['init_type']
         self.debugging=debugging
+        self.run_speed=run_speed
 
         # set seed
         random.seed(seed)
@@ -61,7 +62,7 @@ class Task:
             #if debugging:
             model_path=self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon,iteration-1)
             if self.debugging:
-                feedback_freq=1000
+                feedback_freq=100
             else:
                 feedback_freq=self.feedback_freq
 
@@ -107,7 +108,7 @@ class Task:
                 else:
                     title = 'noisy_{}.csv'.format(prob) if noisy else 'disruptive_{}.csv'.format(prob)
 
-                self.evaluator.evaluate(model, self.env, path=os.path.join(self.eval_path, title), lmbda=lmbda, seed=self.seed, write=True)
+                self.evaluator.evaluate(model, self.env, path=os.path.join(self.eval_path, title), lmbda=lmbda, seed=self.seed, epsilon=epsilon,write=True)
                 break
 
             count=0    

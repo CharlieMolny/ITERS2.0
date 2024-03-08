@@ -102,6 +102,12 @@ class ReplayBuffer:
         self.marked = torch.tensor(self.marked)
         self.marked = torch.cat([self.marked, new_marked])
         marked_list = self.marked.tolist()
+        min_marked_value = min(marked_list)
+        max_marked_value = max(marked_list)
+
+        print("Minimum signal in Buffer: ", min_marked_value)
+        print("Maximum signal in Buffer: ", max_marked_value)
+
         
         self.dataset = TensorDataset(full_dataset, self.marked)
         self.curr_iter = iter

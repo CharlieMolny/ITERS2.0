@@ -25,14 +25,21 @@ def check_environment():
 def run(task_name,debugging,prefix):
 
     run_tailgaiting=False
+    run_speed=True
     # print('Task = {}'.format(task_name))
     rt=''
+    rs=''
     if run_tailgaiting:
         rt='_tailgating'
+
+    elif run_speed:
+        rs='_speed'
+    
+    
     # Define paths
     model_path = prefix+'trained_models/{}{}'.format(task_name,rt)
 
-    env_config_path =  prefix+'config/env/{}{}.json'.format(task_name,rt)
+    env_config_path =  prefix+'config/env/{}{}.json'.format(task_name,rt,rs)
     model_config_path =  prefix+'config/model/{}.json'.format(task_name)
     task_config_path =  prefix+'config/task/{}.json'.format(task_name)
     dataset_path= prefix+'datasets/{}{}/'.format(task_name,rt)
@@ -59,17 +66,19 @@ def run(task_name,debugging,prefix):
     max_iter = 20
 
     # initialize starting and expert.csv model
-    init_model_path =  prefix+'trained_models/{}_init'.format(task_name)
+
+    
+    init_model_path =  prefix+'trained_models/{}{}_init'.format(task_name,rs)
     expert_path = prefix+ 'trained_models/{}_expert{}'.format(task_name,rt)
-    eval_path = prefix+ 'eval/{}{}/'.format(task_name,rt)
+    eval_path = prefix+ 'eval/{}{}{}/'.format(task_name,rt,rs)
 
   
     model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter,debugging)
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter, debugging)
     
 
-    seeds = [0, 1, 2]
-    lmbdas = [1]   ##
+    seeds = [0]
+    lmbdas = [2]   ##
     epsilons=[1]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
@@ -85,7 +94,7 @@ def run(task_name,debugging,prefix):
                         eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
