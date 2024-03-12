@@ -32,9 +32,9 @@ def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000,tas
         dataset_file_path=prefix+dataset_path+'data.pkl'
 
 
-    try:    
-        dataset=torch.load(dataset_file_path)
-        print("loaded initial buffer")
+    try:
+        with open(dataset_file_path, 'rb') as file:
+            dataset = pickle.load(file)    
 
     except :
         print('Initializing replay buffer with env reward...')
