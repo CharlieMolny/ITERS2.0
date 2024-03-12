@@ -8,11 +8,13 @@ from src.reward_modelling.reward_nn import RewardModelNN
 
 class RewardModel:
 
-    def __init__(self, time_window, input_size):
+    def __init__(self, time_window, input_size,max_human_rew=None,lmbda=0):
         self.time_window = time_window
 
         self.buffer = ReplayBuffer(capacity=10000, time_window=self.time_window)
         self.predictor = RewardModelNN(input_size)
+        if max_human_rew is not None:
+            self.buffer.set_maximum_marked(lmbda=lmbda, maximum_human_rew=max_human_rew)
 
     def update(self):
         dataset = self.buffer.get_dataset()

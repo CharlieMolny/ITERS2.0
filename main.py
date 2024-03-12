@@ -95,7 +95,7 @@ def run(task_name,debugging,prefix):
                         eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
@@ -139,15 +139,18 @@ def main():
     # ## add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= True
+    debugging= False
+
+    if debugging:
+        print("!Debugging Project!")
     colab=check_environment()
     if colab:
         prefix=''
     else :
         prefix='/content/ITERS2.0/'
 
-    #task_name="highway"
-    task_name="gridworld"
+    task_name="highway"
+    #task_name="gridworld"
     #task_name="inventory"    
     run(task_name,debugging,prefix)
     #evaluate(task_name,prefix)

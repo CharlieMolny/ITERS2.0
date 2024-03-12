@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq 
@@ -32,7 +32,9 @@ class Task:
         self.init_type = env_config['init_type']
         self.debugging=debugging
         self.run_speed=run_speed
+        self.lmbda=lmbda
 
+    
         # set seed
         random.seed(seed)
 
@@ -40,7 +42,11 @@ class Task:
         ### need to add path variable
         init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type,debugging=self.debugging,run_tailgaiting=run_tailgating)
 
-        self.reward_model = RewardModel(self.time_window, env_config['input_size'])
+        try:
+            self.reward_model = RewardModel(self.time_window, env_config['input_size'],env_config['max_human_rew'],self.lmbda)
+        except:
+            self.reward_model = RewardModel(self.time_window, env_config['input_size'])
+        
 
         # initialize buffer of the reward model
         self.reward_model.buffer.initialize(init_data)

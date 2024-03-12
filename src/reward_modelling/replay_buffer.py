@@ -13,6 +13,7 @@ class ReplayBuffer:
         self.time_window = time_window
         self.count=0
         self.curr_iter = 0
+        self.maximum_mark=999999999 ### setting to arbitrarily large
 
     def initialize(self, dataset):
         self.dataset = dataset
@@ -89,7 +90,7 @@ class ReplayBuffer:
             )
             
 
-            if is_similar:
+            if is_similar and current_mark<self.maximum_mark:
                 updated_mark = current_mark + signal
             else:
                 updated_mark = current_mark
@@ -116,7 +117,7 @@ class ReplayBuffer:
             
             csvwriter = csv.writer(csvfile)
             
-            csvwriter.writerow([min_marked_value, max_marked_value])
+            csvwriter.writerow([self.curr_iter,min_marked_value, max_marked_value])
 
             print("Minimum signal in Buffer: ", min_marked_value)
             print("Maximum signal in Buffer: ", max_marked_value)
@@ -163,4 +164,7 @@ class ReplayBuffer:
     def get_dataset(self):
         print('Unique values in labels = {}'.format(torch.unique(self.dataset.tensors[1], return_counts=True)))
         return self.dataset
-
+   
+    def set_maximum_marked(self,lmbda,maximum_human_rew):
+        maximum_mark=maximum_human_rew/lmbda
+        self.maximum_mark=maximum_mark
