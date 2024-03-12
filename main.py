@@ -95,7 +95,7 @@ def run(task_name,debugging,prefix):
                         eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l,prefix=prefix)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
@@ -140,16 +140,10 @@ def main():
     # task_name = args.task
     
     debugging= True
-
-    if debugging:
-        print("!Debugging Project!")
     colab=check_environment()
-    global prefix
     if colab:
-
         prefix=''
     else :
-
         prefix='/content/ITERS2.0/'
 
     task_name="highway"

@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2,prefix=''):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq 
@@ -33,6 +33,7 @@ class Task:
         self.debugging=debugging
         self.run_speed=run_speed
         self.lmbda=lmbda
+        self.prefix=prefix
 
     
         # set seed
@@ -40,7 +41,7 @@ class Task:
 
         self.init_model = self.model_env if self.init_type == 'train' else None
         ### need to add path variable
-        init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type,debugging=self.debugging,run_tailgaiting=run_tailgating)
+        init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type,debugging=self.debugging,run_tailgaiting=run_tailgating,prefix=prefix)
 
         try:
             self.reward_model = RewardModel(self.time_window, env_config['input_size'],env_config['max_human_rew'],self.lmbda)
@@ -159,7 +160,7 @@ class Task:
             # Update reward model with augmented data
             self.reward_model.update()
 
-            self.evaluator.evaluate(model, self.env, path=prefix+'13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+            self.evaluator.evaluate(model, self.env, path=self.prefix+'13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
 
 
             iteration += 1
