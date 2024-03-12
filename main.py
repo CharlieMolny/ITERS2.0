@@ -147,6 +147,7 @@ def main():
     if local:
         prefix=''
     else :
+        debugging=False
         prefix='/content/ITERS2.0/'
 
     task_name="highway"
