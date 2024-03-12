@@ -79,7 +79,7 @@ def run(task_name,debugging,prefix):
     
 
     seeds = [0]
-    lmbdas = [2]   ##
+    lmbdas = [.09]   ##
     epsilons=[1]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
