@@ -97,7 +97,6 @@ class ReplayBuffer:
                 rules
             )
             
-
             if is_similar and current_mark<self.maximum_mark:
                 updated_mark = current_mark + signal
             else:
@@ -108,7 +107,7 @@ class ReplayBuffer:
 
         self.marked = updated_marked
 
-        print()
+        print("Maximum Signal Allowed in Buffer {}".format(self.maximum_mark))
         self.marked = torch.tensor(self.marked)
         self.marked = torch.cat([self.marked, new_marked])
         marked_list = self.marked.tolist()
@@ -182,5 +181,5 @@ class ReplayBuffer:
         return self.dataset
    
     def set_maximum_marked(self,lmbda,maximum_human_rew):
-        maximum_mark=maximum_human_rew/lmbda
+        maximum_mark=maximum_human_rew/(lmbda*21)  ### needs to be scaled down to avoid exploding human reward
         self.maximum_mark=maximum_mark

@@ -6,7 +6,7 @@
     "init_type": "train",
     "expert_timesteps": 200000,
     "init_buffer_ep": 1000,
-    "max_human_rew":100000,
+    "max_human_rew":8,
     "true_reward_func": {
       "collision_reward": -1,
       "right_lane_reward": 0,
