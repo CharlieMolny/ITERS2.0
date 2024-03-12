@@ -140,8 +140,11 @@ def main():
     # task_name = args.task
     
     debugging= True
-    colab=check_environment()
-    if colab:
+    if debugging:
+        print("!Debugging!")
+    
+    local=check_environment()
+    if local:
         prefix=''
     else :
         prefix='/content/ITERS2.0/'

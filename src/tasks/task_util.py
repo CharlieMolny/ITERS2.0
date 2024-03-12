@@ -23,11 +23,11 @@ def check_dtype(env):
     return state_dtype, action_dtype
 
 
-def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000,task_name='', expl_type='expl',debugging=False,run_tailgaiting=True):
+def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000,task_name='', expl_type='expl',debugging=False,run_tailgaiting=True,prefix=''):
     if run_tailgaiting:
-        dataset_file_path=dataset_path+'data.pt'
+        dataset_file_path=prefix+dataset_path+'data.pt'
     else:
-        dataset_file_path=dataset_path+'data.pkl'
+        dataset_file_path=prefix+dataset_path+'data.pkl'
 
 
     try:    
