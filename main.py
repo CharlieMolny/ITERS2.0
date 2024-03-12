@@ -139,7 +139,7 @@ def main():
     # ## add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= True
+    debugging= False
     if debugging:
         print("!Debugging!")
     
