@@ -139,14 +139,17 @@ def main():
     # ## add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= False
+    debugging= True
 
     if debugging:
         print("!Debugging Project!")
     colab=check_environment()
+    global prefix
     if colab:
+
         prefix=''
     else :
+
         prefix='/content/ITERS2.0/'
 
     task_name="highway"

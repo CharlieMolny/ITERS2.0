@@ -2,8 +2,16 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 import csv
-
+import os
 from src.feedback.feedback_processing import satisfy
+
+
+def check_environment():
+    # Check if the script is running in Google Colab
+    if 'COLAB_GPU' in os.environ:
+        return False
+    else:
+        return True 
 
 
 class ReplayBuffer:
@@ -107,9 +115,17 @@ class ReplayBuffer:
         min_marked_value = min(marked_list)
         max_marked_value = max(marked_list)
 
+        colab=check_environment()
+        if colab:
+
+            prefix=''
+        else :
+
+            prefix='/content/ITERS2.0/'
+
                 # Specify the filename
 
-        filename = "minmax.csv"
+        filename = prefix+"minmax.csv"
 
         # Writing to the CSV file
         with open(filename, 'a', newline='') as csvfile:

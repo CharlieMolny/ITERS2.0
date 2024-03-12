@@ -158,7 +158,8 @@ class Task:
             
             # Update reward model with augmented data
             self.reward_model.update()
-            self.evaluator.evaluate(model, self.env, path=r'C:\Users\charl\Desktop\Dissertation\Technical Part\RePurpose_iters\13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+
+            self.evaluator.evaluate(model, self.env, path=prefix+'13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
 
 
             iteration += 1
