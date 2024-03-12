@@ -36,8 +36,10 @@ def init_replay_buffer(env, model, time_window,dataset_path, n_episodes=1000,tas
         with open(dataset_file_path, 'rb') as file:
             dataset = pickle.load(file)    
 
-    except :
+    except Exception as e:
         print('Initializing replay buffer with env reward...')
+
+        print(f"An error occurred: {type(e).__name__}")
         D = []
         n_episodes = n_episodes if expl_type == 'expl' else int(n_episodes / 10)
         for i in tqdm(range(n_episodes)):
