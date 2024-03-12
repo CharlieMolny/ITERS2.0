@@ -15,7 +15,16 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         self.shaping = shaping
         self.time_window = time_window
         self.run_tailgaiting=run_tailgaiting
+
+
         self.run_speed=run_speed
+        self.config["tailgating"] = {
+            "thresholds": {
+                "thresholdX": 0,
+                "thresholdY": 0
+            },
+            "reward": 0
+            }
 
         self.episode = []
         self.number_of_features=5
@@ -23,6 +32,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         if self.run_tailgaiting:
             self.number_of_agents=5
             self.ego_index=0
+
         else:
             self.number_of_agents =1
         self.state_len = self.number_of_features*self.number_of_agents
