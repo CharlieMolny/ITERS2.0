@@ -10,7 +10,7 @@ from src.feedback.feedback_processing import encode_trajectory
 
 class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
-    def __init__(self, shaping=False, time_window=5,run_tailgaiting=False,run_speed=True):
+    def __init__(self, shaping=False, time_window=5,run_tailgaiting=False,run_speed=False):
         super().__init__()
         self.shaping = shaping
         self.time_window = time_window
@@ -457,62 +457,62 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
     
     
 
-    # def get_feedback(self, best_traj, expl_type):
-    #     feedback=[]
-    #     tail_feedback_list=[]
-    #     lane_trajectories_list=[]
-
-    #     for count,traj in enumerate(best_traj):
-    #         if self.run_tailgaiting:
-    #             tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
-    #             if tail_feedback:
-    #                 tail_feedback_list.append(tail_feedback[0]) 
-    #             else :
-    #                 lane_trajectories_list.append(traj)
-           
-    #         else:
-    #             lane_trajectories_list.append(traj)
-        
-    #     lane_feedback_list=self.get_equilibrium_feedback(lane_trajectories_list, expl_type)
-    #     feedback=tail_feedback_list+lane_feedback_list
-
-    #     return feedback, True
-
     def get_feedback(self, best_traj, expl_type):
-        feedback = []
-        tail_feedback_list = []
-        lane_trajectories_list = []
-        speed_feedback_list = []  # Initialize a list to hold speed feedbacks
+        feedback=[]
+        tail_feedback_list=[]
+        lane_trajectories_list=[]
 
-        # First, filter trajectories for tailgating and lane feedback
-        for count, traj in enumerate(best_traj):
+        for count,traj in enumerate(best_traj):
             if self.run_tailgaiting:
-                tail_feedback = self.get_tailgaiting_feedback(traj, expl_type, count)
+                tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
                 if tail_feedback:
-                    tail_feedback_list.append(tail_feedback[0])
-                else:
+                    tail_feedback_list.append(tail_feedback[0]) 
+                else :
                     lane_trajectories_list.append(traj)
+           
             else:
                 lane_trajectories_list.append(traj)
+        
+        lane_feedback_list=self.get_equilibrium_feedback(lane_trajectories_list, expl_type)
+        feedback=tail_feedback_list+lane_feedback_list
 
-        # Process trajectories for lane feedback
-        lane_feedback_list = []
-        for count, traj in enumerate(lane_trajectories_list):
-            lane_feedback, lane_label_assigned = self.get_negative_feedback(traj, expl_type, count)
-            if lane_label_assigned:
-                lane_feedback_list.append(lane_feedback)
-            else:
-                # If a trajectory is not assigned a lane label, it's eligible for speed feedback
-                speed_feedback = self.get_speed_feedback(traj, count)
-                if speed_feedback:
-                    speed_feedback_list.append(speed_feedback)
+        return feedback, True
 
-        # Combine feedbacks as needed
-        feedback.extend(tail_feedback_list)
-        feedback.extend(lane_feedback_list)
-        feedback.extend(speed_feedback_list)
+    # def get_feedback(self, best_traj, expl_type):
+    #     feedback = []
+    #     tail_feedback_list = []
+    #     lane_trajectories_list = []
+    #     speed_feedback_list = []  # Initialize a list to hold speed feedbacks
 
-        return feedback,True
+    #     # First, filter trajectories for tailgating and lane feedback
+    #     for count, traj in enumerate(best_traj):
+    #         if self.run_tailgaiting:
+    #             tail_feedback = self.get_tailgaiting_feedback(traj, expl_type, count)
+    #             if tail_feedback:
+    #                 tail_feedback_list.append(tail_feedback[0])
+    #             else:
+    #                 lane_trajectories_list.append(traj)
+    #         else:
+    #             lane_trajectories_list.append(traj)
+
+    #     # Process trajectories for lane feedback
+    #     lane_feedback_list = []
+    #     for count, traj in enumerate(lane_trajectories_list):
+    #         lane_feedback, lane_label_assigned = self.get_negative_feedback(traj, expl_type, count)
+    #         if lane_label_assigned:
+    #             lane_feedback_list.append(lane_feedback)
+    #         else:
+    #             # If a trajectory is not assigned a lane label, it's eligible for speed feedback
+    #             speed_feedback = self.get_speed_feedback(traj, count)
+    #             if speed_feedback:
+    #                 speed_feedback_list.append(speed_feedback)
+
+    #     # Combine feedbacks as needed
+    #     feedback.extend(tail_feedback_list)
+    #     feedback.extend(lane_feedback_list)
+    #     feedback.extend(speed_feedback_list)
+
+    #     return feedback,True
 
         
 

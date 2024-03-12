@@ -5,7 +5,7 @@ from src.envs.custom.inventory import Inventory
 from src.evaluation.evaluator import Evaluator
 from src.feedback.rule_feedback import give_rule_feedback
 from src.tasks.task import Task
-
+import csv
 from src.tasks.task_util import train_expert_model, train_model
 from src.util import seed_everything, load_config
 import argparse
@@ -25,7 +25,7 @@ def check_environment():
 def run(task_name,debugging,prefix):
 
     run_tailgaiting=False
-    run_speed=True
+    run_speed=False 
     # print('Task = {}'.format(task_name))
     rt=''
     rs=''
@@ -52,7 +52,7 @@ def run(task_name,debugging,prefix):
     if task_name == 'gridworld':
         env = Gridworld(env_config['time_window'], shaping=False)
     elif task_name == 'highway':
-        env = CustomHighwayEnv(shaping=False, time_window=env_config['time_window'],run_tailgaiting=run_tailgaiting)
+        env = CustomHighwayEnv(shaping=False, time_window=env_config['time_window'],run_tailgaiting=run_tailgaiting,run_speed=run_speed)
         env.config['right_lane_reward'] = env_config['right_lane_reward']
         env.config['lanes_count'] = env_config['lanes_count']
         env.reset()
@@ -63,7 +63,7 @@ def run(task_name,debugging,prefix):
     env.set_true_reward(env_config['true_reward_func'])
 
 
-    max_iter = 20
+    max_iter = 20 ### changed this so would  finally save
 
     # initialize starting and expert.csv model
 
@@ -72,7 +72,8 @@ def run(task_name,debugging,prefix):
     expert_path = prefix+ 'trained_models/{}_expert{}'.format(task_name,rt)
     eval_path = prefix+ 'eval/{}{}{}/'.format(task_name,rt,rs)
 
-  
+
+       
     model_env = train_model(env, model_config, init_model_path, eval_path, task_config['feedback_freq'], max_iter,debugging)
     expert_model = train_expert_model(env, env_config, model_config, expert_path, eval_path, task_config['feedback_freq'], max_iter, debugging)
     
@@ -138,14 +139,15 @@ def main():
     # ## add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= False
+    debugging= True
     colab=check_environment()
     if colab:
         prefix=''
     else :
         prefix='/content/ITERS2.0/'
 
-    task_name="highway"
+    #task_name="highway"
+    task_name="gridworld"
     #task_name="inventory"    
     run(task_name,debugging,prefix)
     #evaluate(task_name,prefix)

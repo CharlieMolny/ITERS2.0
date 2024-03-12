@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+import csv
 
 from src.feedback.feedback_processing import satisfy
 
@@ -105,15 +106,26 @@ class ReplayBuffer:
         min_marked_value = min(marked_list)
         max_marked_value = max(marked_list)
 
-        print("Minimum signal in Buffer: ", min_marked_value)
-        print("Maximum signal in Buffer: ", max_marked_value)
+                # Specify the filename
+
+        filename = "minmax.csv"
+
+        # Writing to the CSV file
+        with open(filename, 'a', newline='') as csvfile:
+            # Create a CSV writer object
+            
+            csvwriter = csv.writer(csvfile)
+            
+            csvwriter.writerow([min_marked_value, max_marked_value])
+
+            print("Minimum signal in Buffer: ", min_marked_value)
+            print("Maximum signal in Buffer: ", max_marked_value)
 
         
         self.dataset = TensorDataset(full_dataset, self.marked)
         self.curr_iter = iter
 
 
-     
     def similar_to_data(self, data, x, important_features, datatype, actions, rules, threshold=0.05):
         if len(rules):
             similar, _ = satisfy(np.array(x.unsqueeze(0)), rules[0], self.time_window)
