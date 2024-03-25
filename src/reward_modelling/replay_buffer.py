@@ -66,7 +66,8 @@ class ReplayBuffer:
         self.dataset = TensorDataset(full_dataset, y)
         self.curr_iter = iter
 
-    def  update(self, new_data, signal, important_features, datatype, actions, rules, iter): 
+    def  update(self, new_data, signal, important_features, datatype, actions, rules, iter):
+         
         print("Original Dataset shape: {}".format(self.dataset.tensors[0].shape))
         print("New Dataset shape : {}".format(new_data.tensors[0].shape))
         
@@ -77,9 +78,11 @@ class ReplayBuffer:
         threshold = 0.05
         closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
 
-        new_marked = [max(self.marked[closest[i][0]],key=abs) + signal if closest[i][1] < threshold else signal for i, n in enumerate(new_data.tensors[0])]
+        new_marked = [max(self.marked[closest[i][0]],key=abs) + signal if closest[i][1] < threshold and max(self.marked[closest[i][0]],key=abs) + signal < self.maximum_mark+ signal else signal for i, n in enumerate(new_data.tensors[0])]
             
         new_marked = torch.tensor(new_marked)
+
+        #new_marked = torch.clamp(new_marked, min=None, max=self.maximum_mark)
         new_marked_list=new_marked.tolist()
 
         updated_marked = []
@@ -97,7 +100,7 @@ class ReplayBuffer:
                 rules
             )
             
-            if is_similar and current_mark<self.maximum_mark:
+            if is_similar and current_mark+signal<self.maximum_mark:
                 updated_mark = current_mark + signal
             else:
                 updated_mark = current_mark
@@ -114,15 +117,7 @@ class ReplayBuffer:
         min_marked_value = min(marked_list)
         max_marked_value = max(marked_list)
 
-        colab=check_environment()
-        if colab:
-
-            prefix=''
-        else :
-
-            prefix='/content/ITERS2.0/'
-
-                # Specify the filename
+        prefix=''
 
         filename = prefix+"minmax.csv"
 
@@ -137,6 +132,7 @@ class ReplayBuffer:
             print("Minimum signal in Buffer: ", min_marked_value)
             print("Maximum signal in Buffer: ", max_marked_value)
 
+        self.marked=torch.clamp(self.marked,max=self.maximum_mark)
         
         self.dataset = TensorDataset(full_dataset, self.marked)
         self.curr_iter = iter
@@ -181,5 +177,5 @@ class ReplayBuffer:
         return self.dataset
    
     def set_maximum_marked(self,lmbda,maximum_human_rew):
-        maximum_mark=maximum_human_rew/(lmbda*21)  ### needs to be scaled down to avoid exploding human reward
+        maximum_mark=maximum_human_rew/(lmbda*19)  ### needs to be scaled down to avoid exploding human reward
         self.maximum_mark=maximum_mark

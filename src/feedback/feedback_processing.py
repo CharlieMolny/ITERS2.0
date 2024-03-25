@@ -19,6 +19,10 @@ def present_successful_traj(model, env, summary_type='best_summary', n_traj=10):
         indices = np.random.choice(len(traj_buffer), n_traj)
         filtered_traj = [traj_buffer[i] for i in indices]
 
+
+
+
+
     # # play filtered trajectories
     # for j, t in enumerate(filtered_traj):
     #     print('------------------\n Trajectory {} \n------------------\n'.format(j))

@@ -3,7 +3,7 @@ import os
 import random
 
 from stable_baselines3 import DQN
-
+import torch
 from src.evaluation.evaluator import Evaluator
 from src.feedback.feedback_processing import present_successful_traj, gather_feedback, augment_feedback_diff, \
     generate_important_features
@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2,prefix=''):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2,prefix='',user_study=False):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq 
@@ -34,6 +34,7 @@ class Task:
         self.run_speed=run_speed
         self.lmbda=lmbda
         self.prefix=prefix
+        self.user_study=user_study
 
     
         # set seed
@@ -98,12 +99,14 @@ class Task:
             model.learn(total_timesteps=feedback_freq)
             model.save(self.model_path + '/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}_iter_{}'.format(experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon,iteration))
             
-            
-            # print the best trajectories
+ 
             best_traj = present_successful_traj(model, self.env, summary_type, n_traj=10)
+            if not self.user_study:
+                # gather feedback trajectories
+                feedback, cont = gather_feedback(best_traj, self.time_window, self.env, disruptive, noisy, prob, expl_type=expl_type, auto=self.auto)
 
-            # gather feedback trajectories
-            feedback, cont = gather_feedback(best_traj, self.time_window, self.env, disruptive, noisy, prob, expl_type=expl_type, auto=self.auto)
+            else:
+                feedback,cont=self.env.get_user_study_feedback(best_traj)
 
             if iteration >= self.max_iter:
                 cont = False
@@ -160,12 +163,29 @@ class Task:
             # Update reward model with augmented data
             self.reward_model.update()
 
-            self.evaluator.evaluate(model, self.env, path=self.prefix+'13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+            #self.evaluator.evaluate(model, self.env, path=self.prefix+'13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+
+            buffer_path='datasets/{}/buffer/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)
+            buffer=self.reward_model.get_buffer()
+            buffer_file_path=prefix+buffer_path+'data.pt'
+            
+            
+            os.makedirs(buffer_path, exist_ok=True) 
+            torch.save(buffer,buffer_file_path)
+
+
+
+            reward_model_path='reward_models/{}/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)
+            self.reward_model.save(reward_model_path)
 
 
             iteration += 1
             
-            #self.evaluator.evaluate(model, self.env, path=r'C:\Users\charl\Desktop\Dissertation\Technical Part\RePurpose_iters\13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+
+            self.evaluator.evaluate(model, self.env, path=r'C:\Users\charl\Desktop\Dissertation\Technical Part\RePurpose_iters\13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
+
+
+
 
 
             

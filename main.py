@@ -22,7 +22,7 @@ def check_environment():
         return True 
 
 
-def run(task_name,debugging,prefix):
+def run(task_name,debugging,prefix,user_study):
 
     run_tailgaiting=False
     run_speed=False 
@@ -79,7 +79,7 @@ def run(task_name,debugging,prefix):
     
 
     seeds = [0]
-    lmbdas = [.09]   ##
+    lmbdas = [.19]   ##
     epsilons=[1]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
@@ -95,23 +95,28 @@ def run(task_name,debugging,prefix):
                         eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l,prefix=prefix)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l,prefix=prefix,user_study=user_study)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
 
 def evaluate(task_name,prefix):
         # # visualizing true reward for different values of lambda
-    eval_path =prefix +   'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
-    original_eval=prefix+'eval/{}/best_summary_expl/IRS_original.csv'.format(task_name)
-    best_summary_path = prefix + eval_path
-    rand_summary_path = prefix + 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
-    expert_path = prefix + 'eval/{}/expert'.format(task_name)
+    # Balanced_Max_path=prefix+'eval/{}/best_summary_expl/IRS_Balanced_Max_Set.csv'.format(task_name)
+    # Balanced_path=prefix+'eval/{}/best_summary_expl/IRS_Balanced.csv'.format(task_name)
+    # Affirmative_path =prefix +   'eval/{}/best_summary_expl/IRS_Affirmative.csv'.format(task_name)
+    #original_eval=prefix+'eval/{}/best_summary_expl/IRS_original.csv'.format(task_name)
+    new_eval=prefix+'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
+
+    # best_summary_path = prefix + eval_path
+    # rand_summary_path = prefix + 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
+    expert_path = prefix + 'eval/{}/expert.csv'.format(task_name)
     model_env_path = prefix + 'eval/{}/model_env.csv'.format(task_name)
     
 
     
-    eval_paths=[[eval_path,'WITERS'],[original_eval,'ITERS']]
+    #eval_paths=[[Balanced_Max_path,'Balanced and Maxed Iters'],[Balanced_path,'Balanced Iters'],[Affirmative_path,'Affirmative Iters'],[original_eval,'Original Iters']]
+    eval_paths=[[new_eval,'New Iters']]
 
     for eval,title in eval_paths:
         title = '{} for different values of \u03BB in {} task'.format(title,task_name)
@@ -139,21 +144,25 @@ def main():
     # ## add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= True
-    if debugging:
-        print("!Debugging!")
-    
+    debugging= False
+
+    load_iteration=0
+
     local=check_environment()
     if local:
         prefix=''
     else :
-        debugging=False
+        debugging=True
         prefix='/content/ITERS2.0/'
+
+    if debugging:
+        print("!Debugging!")
 
     task_name="highway"
     #task_name="gridworld"
+    user_study=False
     #task_name="inventory"    
-    run(task_name,debugging,prefix)
+    run(task_name,debugging,prefix,user_study)
     #evaluate(task_name,prefix)
 
    

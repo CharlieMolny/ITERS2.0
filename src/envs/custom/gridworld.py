@@ -3,7 +3,7 @@ import random
 
 import gym
 import numpy as np
-
+from src.envs.user_study.gridworld.gridworld_user import run_user_study
 from src.feedback.feedback_processing import encode_trajectory
 
 
@@ -230,61 +230,74 @@ class Gridworld(gym.Env):
         return state
 
     def get_feedback(self, best_traj, expl_type):
-        solved = False
-        for t in best_traj:
-            if len(t) < 50:
-                solved = True
-                break
+        # solved = False
+        # for t in best_traj:
+        #     if len(t) < 50:
+        #         solved = True
+        #         break
 
         feedback = []
-        if not solved:
-            negFound = False
-            for t in best_traj:
-                actions = [a for s, a in t]
-                start = 0
-                end = start + 4
-                while not negFound and end < len(t):
-                    if sum(actions[start:end]) == 4:
-                        if expl_type == 'expl':
-                            negFound = True
-                        feedback_traj = t[start:end]
-                        feedback.append(('a', feedback_traj, -1,[],{}, 4))
+        # if not solved:
+        negFound = False
+        for t in best_traj:
+            actions = [a for s, a in t]
+            start = 0
+            end = start + 4
+            while not negFound and end < len(t):
+                if sum(actions[start:end]) == 4:
+                    if expl_type == 'expl':
+                        negFound = True
+                    feedback_traj = t[start:end]
+                    print("Negative Feedback")
+                    feedback.append(('a', feedback_traj, -1,[],{}, 4))
 
-                    start += 1
-                    end += 1
+                start += 1
+                end += 1
 
-                if negFound:
-                    break
-            
-            posFound=False
+            if negFound:
+                break
+        
+        
 
-            for t in best_traj:
-                states =[s for s,a in t]
-                start=0
-                end=start+4
-                while not posFound and end <len(t):
-                    start_state=states[start]
-                    end_state=states[end]
-                    manhattanD_start=abs(start_state[0]-start_state[2])+abs(start_state[1]-start_state[3])
-                    manhattanD_end=abs(end_state[0]-end_state[2])+abs(end_state[1]-end_state[3])
-
-
-                    if manhattanD_end<manhattanD_start:
-                        if expl_type == 'expl':
-                            posFound = True
-                        feedback_traj=t[start:end]
-                        important_features=[0,1,2,3]
-                        feedback.append(('s',feedback_traj,1,important_features,{},4))
-
-                    start+=1
-                    end+=1 
-                if posFound:
-                    break                   
+        for t in best_traj:
+            states =[s for s,a in t]
+            start=0
+            end=start+4
+            Found=False
+            while not Found and end <len(t):
+                start_state=states[start]
+                end_state=states[end]
+                manhattanD_start=abs(start_state[0]-start_state[2])+abs(start_state[1]-start_state[3])
+                manhattanD_end=abs(end_state[0]-end_state[2])+abs(end_state[1]-end_state[3])
 
 
-            return feedback, True
-        else:
-            return [], True
+                if manhattanD_end<manhattanD_start:
+                    if expl_type == 'expl':
+                        Found = True
+                    feedback_traj=t[start:end]
+                    important_features=[0,1,2,3]
+                    print("Positive Feedback")
+                    feedback.append(('s',feedback_traj,1,important_features,{},4))
+
+                elif manhattanD_end>manhattanD_start:
+                    if expl_type == 'expl':
+                        Found = True
+                    feedback_traj=t[start:end]
+                    important_features=[0,1,2,3]
+                    print("Very Negative Feedback")
+                    feedback.append(('s',feedback_traj,-4,important_features,{},4))
+
+
+                start+=1
+                end+=1 
+                 
+
+
+        return feedback, True
+
+        
+    def get_user_study_feedback(self,best_traj):
+        return run_user_study(best_traj)
 
     def set_lambda(self, l):
         self.lmbda = l

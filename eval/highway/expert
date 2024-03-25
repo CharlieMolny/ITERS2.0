@@ -1,4 +1,4 @@
-,collision_rew,right_lane_rew,speed_rew,lane_change_rew,lane_changed,true_reward,seed,iter
+,collision_rew,right_lane_rew,speed_rew,human_rew,lane_changed,true_reward,seed,iter
 0,-0.8,0.0,4.0766732116819755,0.0,0.96,12.972480865487123,0,1
 1,-0.71,0.0,6.284533856084668,0.0,1.66,17.23238132577476,0,2
 2,-0.53,0.0,7.084959010234156,0.0,2.2,18.922113578738678,0,3

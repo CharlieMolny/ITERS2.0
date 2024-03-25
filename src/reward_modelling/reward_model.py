@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
+import os
 from src.reward_modelling.replay_buffer import ReplayBuffer
 from src.reward_modelling.reward_nn import RewardModelNN
 
@@ -29,9 +29,21 @@ class RewardModel:
     def predict(self, encoding):
         encoding = np.array(encoding).reshape(1, -1)
         return self.predictor.predict(encoding)
+    
+    def save(self, file_path='model.pth'):
 
-    def save(self):
-        self.predictor.save()
+        # Ensure the directory exists
+        directory = os.path.dirname(file_path)
+        if directory != '' and not os.path.exists(directory):
+            os.makedirs(directory)
+
+        # Save the model
+        torch.save(self.predictor.net.state_dict(), file_path)
+        print(f"Model saved to {file_path}")
+
+    def get_buffer(self):
+        return self.buffer.get_dataset()
+        
 
 
 
