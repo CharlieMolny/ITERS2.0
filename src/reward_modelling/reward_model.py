@@ -6,13 +6,25 @@ from src.reward_modelling.replay_buffer import ReplayBuffer
 from src.reward_modelling.reward_nn import RewardModelNN
 
 
+
+
 class RewardModel:
 
-    def __init__(self, time_window, input_size,max_human_rew=None,lmbda=0):
+    def __init__(self, time_window, input_size,max_human_rew=9999,lmbda=0,load_iteration=False):
         self.time_window = time_window
-
         self.buffer = ReplayBuffer(capacity=10000, time_window=self.time_window)
         self.predictor = RewardModelNN(input_size)
+        
+
+        if load_iteration:
+            directory=r'C:\Users\charl\Desktop\Dissertation\Technical Part\datasets'
+            self.buffer.dataset=torch.load(directory+"\seed_0_lmbda_0.19_epsilon_1data.pt") ##chanage this later
+            state_dict=torch.load(r'reward_models\highway\regular_best_summary_expl\seed_0_lmbda_0.19_epsilon_1')
+            self.predictor.net.load_state_dict(state_dict)
+            print("loaded previous iteration")
+        
+
+
         if max_human_rew is not None:
             self.buffer.set_maximum_marked(lmbda=lmbda, maximum_human_rew=max_human_rew)
 

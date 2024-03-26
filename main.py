@@ -22,10 +22,11 @@ def check_environment():
         return True 
 
 
-def run(task_name,debugging,prefix,user_study):
+def run(task_name,debugging,prefix,user_study,load_iteration):
 
     run_tailgaiting=False
     run_speed=False 
+
     # print('Task = {}'.format(task_name))
     rt=''
     rs=''
@@ -84,6 +85,8 @@ def run(task_name,debugging,prefix,user_study):
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
 
+
+
         
     for sum, expl in experiments:   
         for e in epsilons:
@@ -95,7 +98,7 @@ def run(task_name,debugging,prefix,user_study):
                         eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l,prefix=prefix,user_study=user_study)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l,prefix=prefix,user_study=user_study,load_iteration=load_iteration)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
@@ -146,7 +149,7 @@ def main():
     
     debugging= False
 
-    load_iteration=0
+    load_iteration=10
 
     local=check_environment()
     if local:
@@ -162,7 +165,7 @@ def main():
     #task_name="gridworld"
     user_study=False
     #task_name="inventory"    
-    run(task_name,debugging,prefix,user_study)
+    run(task_name,debugging,prefix,user_study,load_iteration)
     #evaluate(task_name,prefix)
 
    

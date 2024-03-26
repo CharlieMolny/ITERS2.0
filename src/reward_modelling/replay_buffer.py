@@ -23,11 +23,15 @@ class ReplayBuffer:
         self.curr_iter = 0
         self.maximum_mark=999999999 ### setting to arbitrarily large
 
-    def initialize(self, dataset):
+    def initialize(self, dataset,load_iteration):
         self.dataset = dataset
 
         # measures how many times a trajectory was added
         self.marked = np.zeros((len(self.dataset), ))
+        if load_iteration:
+            self.marked = self.dataset.tensors[1]
+
+
 
     def update_original(self, new_data, signal, important_features, datatype, actions, rules, iter): #self, new_data, signal, important_features, datatype, actions, rules, iter
         print('Updating reward buffer...')

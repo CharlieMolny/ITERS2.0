@@ -15,7 +15,7 @@ from src.visualization.visualization import visualize_feature
 
 class Task:
 
-    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2,prefix='',user_study=False):
+    def __init__(self, env, model_path, dataset_path,model_env, model_expert, task_name, max_iter, env_config, model_config, eval_path, debugging,feedback_freq,expl_type='expl',auto=False, seed=0,run_tailgating=True,run_speed=True,lmbda=0.2,prefix='',user_study=False,load_iteration=0):
         self.model_path = model_path
         self.time_window = env_config['time_window']
         self.feedback_freq = feedback_freq 
@@ -35,6 +35,7 @@ class Task:
         self.lmbda=lmbda
         self.prefix=prefix
         self.user_study=user_study
+        self.load_iteration=load_iteration
 
     
         # set seed
@@ -45,13 +46,12 @@ class Task:
         init_data = init_replay_buffer(self.env, self.init_model, self.time_window, dataset_path,self.env_config['init_buffer_ep'], expl_type=expl_type,debugging=self.debugging,run_tailgaiting=run_tailgating,prefix=prefix)
 
         try:
-            self.reward_model = RewardModel(self.time_window, env_config['input_size'],env_config['max_human_rew'],self.lmbda)
+            self.reward_model = RewardModel(self.time_window, env_config['input_size'],env_config['max_human_rew'],self.lmbda,load_iteration=load_iteration)
         except:
-            self.reward_model = RewardModel(self.time_window, env_config['input_size'])
+            self.reward_model = RewardModel(self.time_window, env_config['input_size'],999999,load_iteration=load_iteration)
         
 
-        # initialize buffer of the reward model
-        self.reward_model.buffer.initialize(init_data)
+        self.reward_model.buffer.initialize(init_data,load_iteration=load_iteration)
 
         # evaluator object
         self.evaluator = Evaluator(self.init_model, self.feedback_freq, env)
@@ -61,7 +61,7 @@ class Task:
 
     def run(self, noisy=False, disruptive=False, experiment_type='regular', summary_type='best_summary', expl_type='expl', lmbda=0.2, prob=0,epsilon=0,prefix=''):
         finished_training = False
-        iteration = 1
+        iteration = self.load_iteration
         self.evaluator.reset_reward_dict()
 
         while not finished_training:

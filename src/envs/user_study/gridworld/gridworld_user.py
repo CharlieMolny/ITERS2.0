@@ -3,6 +3,11 @@ import sys
 import numpy as np
 import random
 import time 
+import csv 
+import os
+import copy  # Make sure to import the copy module
+import json
+import pandas as pd
 
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
@@ -59,9 +64,9 @@ current_traj_index = 0
 none_state=False
 action_state=False
 
-pirate_pos = [0, 0]  
+pirate_pos = [1, 3]  
 pirate_orientation = 0  
-treasure_pos = [0, 0]  
+treasure_pos = [1, 0]  
 current_traj_index = 0  
 
 def rotate_pirate_anticlockwise():
@@ -292,7 +297,169 @@ def run_user_study(best_traj):
     feedback_tuple_list= convert_feedback()
     return feedback_tuple_list
 
-    
+# def get_current_state():
+#     return {
+#         "pirate_pos": pirate_pos,  # Assuming pirate_pos is defined as [x, y]
+#         "treasure_pos": treasure_pos,  # Assuming treasure_pos is defined as [x, y]
+#         "pirate_orientation": pirate_orientation  # Assuming this is an integer representing orientation
+#     }
 
+# def save_frame(screen, action_count, directory='game_frames'):
+#     if not os.path.exists(directory):
+#         os.makedirs(directory)
+#     pygame.image.save(screen, f"{directory}/frame_{action_count}.png")
+
+def get_current_state():
+    # Assuming pirate_pos, treasure_pos, and pirate_orientation are defined and updated elsewhere
+    return {
+        "pirate_pos": pirate_pos,
+        "treasure_pos": treasure_pos,
+        "pirate_orientation": pirate_orientation
+    }
+
+def save_frame(screen, trajectory_id, action_count, base_directory=r'src\envs\user_study\gridworld\game_frames'):
+    # Create a directory for the current trajectory if it doesn't exist
+    directory = os.path.join(base_directory, f"trajectory_{trajectory_id}")
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Save the frame with the action count within the trajectory directory
+    frame_path = os.path.join(directory, f"frame_{action_count}.png")
+    pygame.image.save(screen, frame_path)
+
+def save_trajectories(df, filename=r'src\envs\user_study\gridworld\trajectories.csv'):
+    try:
+        existing_df = pd.read_csv(r'src\envs\user_study\gridworld\trajectories.csv')
+        if not existing_df.empty and 'trajectory_id' in existing_df:
+            max_id = existing_df['trajectory_id'].max()
+            # Check if max_id is NaN
+            if pd.isna(max_id):
+                trajectory_id = 1
+            else:
+                trajectory_id = max_id + 1
+        else:
+            trajectory_id = 1  # Start from 1 if CSV is empty or doesn't contain the column
+    except FileNotFoundError:
+        trajectory_id = 1  # Start from 1 if file doesn't exist
+
+    trajectories = []
+    for i in range(0, len(df), 5):  # Process chunks of 5
+        trajectory_df = df.iloc[i:i+5]  # Get a slice of 5 rows
+        if len(trajectory_df) == 5:  # Check if the slice has exactly 5 rows
+            trajectory = [{'state': row['state'], 'action': row['action']} for index, row in trajectory_df.iterrows()]
+            trajectory_json = json.dumps(trajectory)
+            trajectories.append({'trajectory_id': trajectory_id, 'trajectory': trajectory_json})
+            trajectory_id += 1 
+
+    # Convert the list of trajectories to a DataFrame and append to the existing CSV
+    trajectory_df = pd.DataFrame(trajectories)
+    if os.path.exists(filename):
+        trajectory_df.to_csv(filename, mode='a', header=False, index=False)
+    else:
+        trajectory_df.to_csv(filename, index=False)
+
+
+def user_control():
+    pygame.init()
+    screen = pygame.display.set_mode((grid_area_width, grid_area_width))
+    pygame.display.set_caption('Pirate Treasure Hunt')
+    clock = pygame.time.Clock()
+
+    record_actions = False
+    actions_to_record = []
+    action_count = 0  # Counter for actions to be recorded
+    trajectory_id = 0  # Initialize trajectory ID
+
+    try:
+        existing_df = pd.read_csv(r'src\envs\user_study\gridworld\trajectories.csv')
+        if not existing_df.empty and 'trajectory_id' in existing_df:
+            max_id = existing_df['trajectory_id'].max()
+            # Check if max_id is NaN
+            if pd.isna(max_id):
+                trajectory_id = 1
+            else:
+                trajectory_id = max_id + 1
+        else:
+            trajectory_id = 1  # Start from 1 if CSV is empty or doesn't contain the column
+    except FileNotFoundError:
+        trajectory_id = 1  # Start from 1 if file doesn't exist
+
+    record_actions= False
+    while True:
+          # Reset for new recording
+        
+        for event in pygame.event.get():
+            state={
+                        "pirate_pos": pirate_pos,
+                        "treasure_pos": treasure_pos,
+                        "pirate_orientation": pirate_orientation
+                    }
+            if event.type == pygame.QUIT:
+                df = pd.DataFrame(actions_to_record)
+                pygame.quit()
+                return df
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    record_actions = True
+                    actions_to_record = []
+                    
+                    
+                    action_count = 0  # Reset action counter
+
+                if event.key == pygame.K_RIGHT or event.key == pygame.K_UP:
+                    
+                    if record_actions and action_count < 5:
+                        if event.key == pygame.K_RIGHT:
+                            action=0
+                        elif  event.key == pygame.K_UP:
+                            action=1
+
+                        state_action_pair = {
+                            "trajectory_id": trajectory_id,
+                            "state": copy.deepcopy(state),  
+                            "action": action
+                        }
+
+                        actions_to_record.append(state_action_pair)
+                        action_count += 1
+                        save_frame(screen, trajectory_id, action_count)
+
+                        if action_count == 5:
+                            trajectory_id += 1 
+                            record_actions = False 
+
+    
+                    if event.key == pygame.K_RIGHT:
+                        rotate_pirate_anticlockwise() 
+
+                    elif event.key == pygame.K_UP:
+                        move_pirate()  
+
+ 
+        pygame.display.flip()
+        clock.tick(15)
+
+        screen.fill(WHITE)
+        for x in range(0, grid_area_width, cell_size):
+            for y in range(0, grid_area_width, cell_size):
+                pygame.draw.rect(screen, BLUE, pygame.Rect(x, y, cell_size, cell_size), 1)
+        pirate_img = pygame.transform.scale(pygame.image.load(r'src\envs\user_study\gridworld\pirate.png'), (cell_size, cell_size))
+        treasure_img = pygame.transform.scale(pygame.image.load(r'src\envs\user_study\gridworld\treasure.png'), (cell_size, cell_size))
+        
+        rotation_angle = pirate_orientation * -90
+        rotated_pirate_img = pygame.transform.rotate(pirate_img, rotation_angle)
+        screen.blit(rotated_pirate_img, (pirate_pos[0] * cell_size, pirate_pos[1] * cell_size))
+        screen.blit(treasure_img, (treasure_pos[0] * cell_size, treasure_pos[1] * cell_size))
+        
+
+
+        pygame.display.flip()
+        clock.tick(15)  
+
+
+if __name__ =='__main__':
+    df=user_control()
+    save_trajectories(df)
 
 
