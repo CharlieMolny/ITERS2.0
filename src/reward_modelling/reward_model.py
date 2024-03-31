@@ -17,9 +17,9 @@ class RewardModel:
         
 
         if load_iteration:
-            directory=r'C:\Users\charl\Desktop\Dissertation\Technical Part\datasets'
-            self.buffer.dataset=torch.load(directory+"\seed_0_lmbda_0.19_epsilon_1data.pt") ##chanage this later
-            state_dict=torch.load(r'reward_models\highway\regular_best_summary_expl\seed_0_lmbda_0.19_epsilon_1')
+            directory=r'datasets\highway\buffer\regular_best_summary_expl'
+            self.buffer.dataset=torch.load(directory+"\seed_0_lmbda_0.4_epsilon_1data.pt") ##chanage this later
+            state_dict=torch.load(r'reward_models\highway\regular_best_summary_expl\seed_0_lmbda_0.4_epsilon_1')
             self.predictor.net.load_state_dict(state_dict)
             print("loaded previous iteration")
         

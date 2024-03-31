@@ -80,7 +80,14 @@ class ReplayBuffer:
         # print("size of full dataset {}".format(len(full_dataset)))
 
         threshold = 0.05
-        closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
+
+        if len(rules) !=0:
+            close_data, close_indices=self.closest(0,self.dataset.tensors[0], important_features, rules)
+            closest = [(close_data,close_indices) for n in new_data.tensors[0]]
+
+        else:
+            closest = [self.closest(n, self.dataset.tensors[0], important_features, rules) for n in new_data.tensors[0]]
+
 
         new_marked = [max(self.marked[closest[i][0]],key=abs) + signal if closest[i][1] < threshold and max(self.marked[closest[i][0]],key=abs) + signal < self.maximum_mark+ signal else signal for i, n in enumerate(new_data.tensors[0])]
             
@@ -160,10 +167,11 @@ class ReplayBuffer:
 
     def closest(self, x, data, important_features, rules):
         if len(rules):
-            if rules['quant']=='a':
-                close_data, close_indices = satisfy(np.array(data), rules[0], self.time_window)
-            elif rules['quant']=='s':  
-                 close_data, close_indices = satisfy(np.array(data), rules, self.time_window)
+            for rule in rules:
+
+                close_data, close_indices = satisfy(np.array(data), rule, self.time_window)
+ 
+   
             return close_indices, np.zeros((len(close_indices), ))
 
         difference = torch.mean(abs(data[:, important_features] - x[important_features]) * 1.0, axis=1)
@@ -181,5 +189,5 @@ class ReplayBuffer:
         return self.dataset
    
     def set_maximum_marked(self,lmbda,maximum_human_rew):
-        maximum_mark=maximum_human_rew/(lmbda*19)  ### needs to be scaled down to avoid exploding human reward
-        self.maximum_mark=maximum_mark
+        maximum_mark=maximum_human_rew/(lmbda*20)  ### needs to be scaled down to avoid exploding human reward
+        self.maximum_mark=int(maximum_mark)

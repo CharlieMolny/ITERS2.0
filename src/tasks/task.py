@@ -135,8 +135,9 @@ class Task:
                 
                 if not self.debugging:
                     length=10000
+
                 else:
-                    length =500
+                    length =100
                 # augment feedback for each trajectory
                 D = augment_feedback_diff(feedback_traj,
                                           signal,

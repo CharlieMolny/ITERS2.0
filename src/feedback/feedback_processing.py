@@ -3,7 +3,8 @@ import torch
 from dtw import dtw
 import re
 from torch.utils.data import TensorDataset
-
+import operator
+from torch.utils.data import ConcatDataset, TensorDataset
 
 def present_successful_traj(model, env, summary_type='best_summary', n_traj=10):
     # gather trajectories
@@ -177,90 +178,188 @@ def disrupt(feedback, prob):
         return feedback
 
 
-def augment_feedback_diff(traj, signal, important_features,rules,timesteps, env, time_window, actions, datatype, expl_type='expl', length=100):
+def augment_feedback_diff(traj, signal, important_features, rules, timesteps, env, time_window, actions, datatype, expl_type='expl', length=100, ):
     print('Augmenting feedback...')
-    if expl_type == 'expl':
-        state_dtype, action_dtype = datatype
-        state_len = env.state_len
-
-        traj_len = len(traj)
-        traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
-        enc_len = traj_enc.shape[0]
-        #### feature label should be immutable
-        immutable_features = [im_f + (state_len * i) for i in range(traj_len) for im_f in env.immutable_features]
-
-        important_features =important_features+ immutable_features
-
-        # generate mask to preserve important features
-        random_mask = np.ones((length, enc_len))
-        random_mask[:, important_features] = 0
-        inverse_random_mask = 1 - random_mask
-
-        D = np.tile(traj_enc, (length, 1))
-        print("D is of type: {} at this point ".format(D.dtype))
+    combined_data=[]
+    combined_data=torch.tensor(combined_data, dtype=torch.float32)
+    
+    combined_y= torch.full((len(combined_data),), signal)
+    combined_dataset=TensorDataset(combined_data,combined_y)
 
 
-        # add noise to important features if they are continuous
-        if state_dtype != 'int':
-            # adding noise for continuous state features
-            D[:, env.cont_features] = D[:, env.cont_features] + np.random.normal(0, 0.001, (length, len(env.cont_features)))
+    while True:
+        if expl_type == 'expl':
+            state_dtype, action_dtype = datatype
+            state_len = env.state_len
 
-        # observation limits
-        lows = list(np.tile(env.lows, (time_window + 1, 1)).flatten())
-        highs = list(np.tile(env.highs, (time_window + 1, 1)).flatten())
+            traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
+            enc_len = traj_enc.shape[0]
 
-        # action limits
-        lows += [0] * time_window
-        highs += [env.action_space.n] * time_window
+            # Immutable and important features
+            immutable_features = [im_f + (state_len * i) for i in range(len(traj)) for im_f in env.immutable_features]
+            important_mask = important_features + immutable_features
 
-        # timesteps limits
-        lows += [1]
-        highs += [time_window]
+            # Masks for preserving important features
+            random_mask = np.ones((length, enc_len))
+            random_mask[:, important_mask] = 0
+            inverse_random_mask = 1 - random_mask
 
-        # generate matrix of random values within allowed ranges
-        if state_dtype == 'int' or (actions and action_dtype == 'int'):
-            rand_D = np.random.randint(lows, highs, size=(length, enc_len))
+            # Base dataset
+            D = np.tile(traj_enc, (length, 1))
+
+            # Add noise to important features if they are continuous
+            if state_dtype != 'int':
+                D[:, env.cont_features] = D[:, env.cont_features] + np.random.normal(0, 0.001, (length, len(env.cont_features)))
+
+            # Observation and action limits
+            lows = list(np.tile(env.lows, (time_window + 1, 1)).flatten()) + [0] * time_window + [1]
+            highs = list(np.tile(env.highs, (time_window + 1, 1)).flatten()) + [env.action_space.n] * time_window + [time_window]
+
+            # Generate random data within allowed ranges
+            if state_dtype == 'int' or (actions and action_dtype == 'int'):
+                rand_D = np.random.randint(lows, highs, size=(length, enc_len))
+            else:
+                rand_D = np.random.uniform(lows, highs, size=(length, enc_len))
+
+            # Specific handling for continuous actions
+            if actions and action_dtype == 'cont':
+                rand_D[:, (time_window*state_len+1):-1] = augment_actions(traj, length)
+
+            if not actions:
+                rand_D[:, -(time_window+1):] = np.random.randint(lows[-(time_window+1):], highs[-(time_window+1):], (length, time_window+1))
+
+            D = np.multiply(rand_D, random_mask) + np.multiply(inverse_random_mask, D)
+
+            for rule in rules:
+                D, _ = satisfy(D, rule, time_window)
+
         else:
-            rand_D = np.random.uniform(lows, highs, size=(length, enc_len))
+            traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
+            D = np.tile(traj_enc, (1, 1))
 
-        if actions and action_dtype == 'cont':
-            rand_D[:, (time_window*state_len+1):-1] = augment_actions(traj, length)
+        # Convert to tensor and ensure uniqueness
+        D = torch.tensor(D, dtype=torch.float32)
+        D = torch.unique(D, dim=0)
 
-        if not actions:
-            # randomize actions
-            rand_D[:, -(time_window+1):] = np.random.randint(lows[-(time_window+1):], highs[-(time_window+1):], (length, time_window+1))
+        # Create dataset for this iteration
+        y = torch.full((len(D),), signal)
 
-        D = np.multiply(rand_D, random_mask) + np.multiply(inverse_random_mask, D)
 
-        for rule in rules:
-            D, _ = satisfy(D, rule,env, time_window,traj_len)
+        combined_data, combined_y = combined_dataset.tensors
+
+        combined_data = torch.cat([D, combined_data], dim=0)
+        combined_labels = torch.cat([y, combined_y], dim=0)
+
+
+        combined_dataset = TensorDataset(combined_data, combined_labels)
+
+        # Add the current dataset to the list of all datasets
+   
+
+        # Combine all datasets collected so far
+        # combined_dataset = ConcatDataset([combined_dataset,current_dataset])
+
+        
+        print('Generated {} augmented samples'.format(len(combined_dataset)))
+
+        # Check if the combined dataset is large enough
+        if len(combined_dataset) >= 5000:
+            break
+
+        # If not, the loop continues, generating more data
+
+    return combined_dataset
+
+
+
+# def augment_feedback_diff(traj, signal, important_features,rules,timesteps, env, time_window, actions, datatype, expl_type='expl', length=100,additional_data=[]):
+#     print('Augmenting feedback...')
+#     if expl_type == 'expl':
+#         state_dtype, action_dtype = datatype
+#         state_len = env.state_len
+
+#         traj_len = len(traj)
+#         traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
+#         enc_len = traj_enc.shape[0]
+#         #### feature label should be immutable
+#         immutable_features = [im_f + (state_len * i) for i in range(traj_len) for im_f in env.immutable_features]
+
+#         important_mask =important_features+ immutable_features
+
+#         # generate mask to preserve important features
+#         random_mask = np.ones((length, enc_len))
+#         random_mask[:, important_mask] = 0
+#         inverse_random_mask = 1 - random_mask
+
+#         D = np.tile(traj_enc, (length, 1))
         
 
-    else:
-        traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
-        D = np.tile(traj_enc, (1, 1))
 
-    # reward for feedback the signal
-    D = torch.tensor(D)
-    D = torch.unique(D, dim=0)
+#         # add noise to important features if they are continuous
+#         if state_dtype != 'int':
+#             # adding noise for continuous state features
+#             D[:, env.cont_features] = D[:, env.cont_features] + np.random.normal(0, 0.001, (length, len(env.cont_features)))
 
-    y = np.zeros((len(D),))
-    y.fill(signal)
-    y = torch.tensor(y)
+#         # observation limits
+#         lows = list(np.tile(env.lows, (time_window + 1, 1)).flatten())
+#         highs = list(np.tile(env.highs, (time_window + 1, 1)).flatten())
+
+#         # action limits
+#         lows += [0] * time_window
+#         highs += [env.action_space.n] * time_window
+
+#         # timesteps limits
+#         lows += [1]
+#         highs += [time_window]
+
+#         # generate matrix of random values within allowed ranges
+#         if state_dtype == 'int' or (actions and action_dtype == 'int'):
+#             rand_D = np.random.randint(lows, highs, size=(length, enc_len))
+#         else:
+#             rand_D = np.random.uniform(lows, highs, size=(length, enc_len))
+
+#         if actions and action_dtype == 'cont':
+#             rand_D[:, (time_window*state_len+1):-1] = augment_actions(traj, length)
+
+#         if not actions:
+#             # randomize actions
+#             rand_D[:, -(time_window+1):] = np.random.randint(lows[-(time_window+1):], highs[-(time_window+1):], (length, time_window+1))
+
+#         D = np.multiply(rand_D, random_mask) + np.multiply(inverse_random_mask, D)
+
+
+#         for rule in rules:
+#             D, _ = satisfy(D, rule, time_window)
+            
+
+#     else:
+#         traj_enc = encode_trajectory(traj, state=None, timesteps=timesteps, time_window=time_window, env=env)
+#         D = np.tile(traj_enc, (1, 1))
+
+#     # reward for feedback the signal
+#     D = torch.tensor(D)
+#     D = torch.unique(D, dim=0)
+
+#     y = np.zeros((len(D),))
+#     y.fill(signal)
+#     y = torch.tensor(y)
     
-    dataset = TensorDataset(D, y)
+#     dataset = TensorDataset(D, y)
+#     dataset=ConcatDataset([dataset,additional_data])
 
-    print('Generated {} augmented samples'.format(len(dataset)))
-    return dataset
+#     print('Generated {} augmented samples'.format(len(dataset)))
+
+
+#     return dataset
 
 
 
-def satisfy(D, rules,env, time_window,traj_len):
+def satisfy(D, rules, time_window):
     if rules['quant'] == 'a':
         return satisfyAction(D, rules, time_window)
     
     if rules['quant']=='s':
-        return satisfyState(D,rules,env, traj_len)
+        return satisfyState(D,rules, time_window)
 
 def satisfyAction(D, r, time_window):
     
@@ -288,99 +387,173 @@ def satisfyAction(D, r, time_window):
             return D[satisfies], []
 
 
-def satisfyState(D,r,env, traj_len):
-
-
-    filtered_D = []
-    for trajectory in D:
-        segments = [trajectory[i:i + env.number_of_features] for i in range(0, traj_len*env.number_of_features, env.number_of_features)]
-        isRuleMet=False
-        ego_segment=segments[0]
-        for segment in segments[1:]:
-            if check_rules(ego_segment,segment,r):
-                isRuleMet=True ## if any of the state relationships between the ego and any other agent in the environment fit then the rule is met
-                break
-            
-        if isRuleMet:
-            filtered_D.append(trajectory)     
-
-
-    return np.array(filtered_D),[]
-
-
-def check_rules(state1, state2, rules):
-    results = {}
-    features = rules.get('features', {})
-    #feature_indices=env.get_rule_feature_list(traj_len,rules)
-
-
-    for feature_index,(feature, details) in enumerate(features.items(),start=1):
-        expression = details.get('Expression')
-        
-        if expression is None:
-            continue  
-  
-        if isinstance(expression, dict) and expression.get('type') == '-':
-            diff = state1[feature_index] - state2[feature_index]
-            
-            if expression.get('abs', False): 
-                diff = abs(diff)
-
-            threshold = expression.get('threshold', float('inf')) 
-            if expression.get('limit_sign')=='<':
-                results[feature_index] = diff < threshold
-
-            elif expression.get('limit_sign')=='>':
-                results[feature_index] = diff > threshold        
-            elif  expression.get('limit_sign')=='<=':
-                results[feature_index] = diff <= threshold
-
-            elif expression.get('limit_sign')=='>=':
-                results[feature_index] = diff >= threshold
-
-        elif isinstance(expression, dict) and expression.get('type') == '+':
-            sum = state1[feature_index] + state2[feature_index]
-            
-            if expression.get('abs', False): 
-                sum = abs(sum)
-            threshold = expression.get('threshold', float('inf')) 
-            if expression.get('limit_sign')=='<':
-                results[feature_index] = sum < threshold
-
-            elif expression.get('limit_sign')=='>':
-                results[feature_index] = sum > threshold        
-            elif  expression.get('limit_sign')=='<=':
-                results[feature_index] = sum <= threshold
-
-            elif expression.get('limit_sign')=='>=':
-                results[feature_index] = sum >= threshold
-        
-        # For equality checks
-        elif expression.get('type') == '==':
-            sensitivity = expression.get('sensitivity')
-            results[feature_index] = abs(state1[feature_index] - state2[feature_index]) < sensitivity
-
-        
-
-    for result in results:
-        if result ==False :
-            return False
-            
+def reshape_trajectory(trajectory, number_of_features, number_of_agents, time_window):
+    # Calculate the total number of segments (depth) based on the length of the trajectory
+    total_elements = number_of_features * number_of_agents * time_window
+    segment_length = number_of_features * number_of_agents
+    sliced_trajectory = trajectory[:total_elements]
     
-    return True
+    # Reshape the trajectory into a 3D array: [Number of Agents, Number of Features, Depth (Time Window Segments)]
+    reshaped_trajectory = np.reshape(sliced_trajectory, (number_of_features, number_of_agents, time_window))
+
+    
+    return reshaped_trajectory
+
+def batch_reshape_trajectories(D, number_of_features, number_of_agents, time_window):
+    # Calculate the total number of elements per trajectory based on the desired shape
+    total_elements_per_trajectory = number_of_features * number_of_agents * time_window
+    
+    # Slice each trajectory in D to the desired length and stack them into a numpy array
+    # This assumes all trajectories in D have at least total_elements_per_trajectory elements
+    sliced_trajectories = np.array([trajectory[:total_elements_per_trajectory] for trajectory in D])
+    
+    # Reshape the array of sliced trajectories into the desired shape
+    # The final shape will be: [Number of Trajectories, Number of Features, Number of Agents, Time Window]
+    reshaped_trajectories = np.reshape(sliced_trajectories, (-1, number_of_features, number_of_agents, time_window))
+    
+    return reshaped_trajectories
+
+
+### original-but not optimised 
+# def satisfyState(D, r, time_window):
+#     filtered_D = []
+#     satisfied_counts = {}  # Dictionary to hold counts of satisfied segments for each trajectory
+#     number_of_features = 5  # Dependent on environment
+#     number_of_agents=5
+
+#     for idx, trajectory in enumerate(D):
+
+#         reshaped_trajectory = reshape_trajectory(trajectory,number_of_features,number_of_agents,time_window)
+#         satisfied_count=0    
+#         for t in range(time_window):
+                
+#                 segments= reshaped_trajectory[:, :, t]
+
+#                 for segment_idx, segment in enumerate(segments[1:], start=1):  # Start from 1 to skip the first element
+#                     if check_rules(segment, r):
+#                         satisfied_count += 1
+
+#         # Only add trajectories that have at least one segment satisfying the rules
+#         if satisfied_count > 0:
+#             filtered_D.append(trajectory)
+#             satisfied_counts[idx] = satisfied_count
+
+#     # Find the trajectory index with the maximum count of satisfied segments
+#     max_index = max(satisfied_counts, key=satisfied_counts.get, default=-1)
+#     max_count = satisfied_counts.get(max_index, 0)
+
+#     # Return the filtered trajectories and the max index
+#     # The max index corresponds to the trajectory with the highest count of segments that satisfy the rules
+#     return np.array(filtered_D), [max_index]
+
+def satisfyState(D, r, time_window):
+    filtered_D = []
+    satisfied_counts = {}
+    original_indices = []
+
+    # Parameters
+    number_of_features = 5
+    number_of_agents = 5
+
+    reshaped_D = batch_reshape_trajectories(D, number_of_features, number_of_agents, time_window)   
+    for idx, trajectory in enumerate(reshaped_D):
+        # Initialize a count array for each agent to track consecutive timesteps
+        consecutive_count = np.zeros(trajectory.shape[1] - 1)  # Assuming agents are along the second dimension
+        add_trajectory=False
+        for t in range(time_window):
+            agents = trajectory[:, :, t]
+            satisfied_agents = check_rules_vectorized(agents[1:], r)
+
+            # Update the count for agents where the rule is satisfied
+            consecutive_count[satisfied_agents] += 1
+
+            # Reset the count to 0 where the rule is not satisfied
+            consecutive_count[~satisfied_agents] = 0
+
+            # Check if any agent has satisfied the rule for 3 consecutive timesteps
+            if np.any(consecutive_count >= 2):
+                add_trajectory=True
+                break
+
+        if add_trajectory:
+            original_indices.append(idx)  # Save the original index of the trajectory
+            satisfied_counts[idx] = add_trajectory
+
+
+    for idx in original_indices:
+        filtered_D.append(D[idx])
+
+    # Find the trajectory index with the maximum count of satisfied segments
+    max_index = max(satisfied_counts, key=satisfied_counts.get, default=-1)
+    max_count = satisfied_counts.get(max_index, 0)
+
+    return np.array(filtered_D), [max_index]
+
+
+# def check_rules(state1, rules):
+#     results = {}
+#     features = rules.get('features', {})
+#     for feature_index, (feature, details) in enumerate(features.items(), start=1):
+#         expression = details.get('Expression')
+
+#         if expression is None:
+#             continue
+
+#         if isinstance(expression, dict):
+#             state = state1[feature_index - 1]  # Adjusted index to be 0-based
+
+#             if expression.get('abs', False):
+#                 state = abs(state)
+#             threshold = expression.get('threshold', float('inf'))
+#             limit_sign = expression.get('limit_sign')
+#             results[feature_index] = eval(f"{state} {limit_sign} {threshold}")
+
+#         # For equality checks
+#         elif expression.get('type') == '==':
+#             sensitivity = expression.get('sensitivity', 0)
+#             results[feature_index] = abs(state1[feature_index - 1]) < sensitivity  # Adjusted index to be 0-based
+
+#     return all(results.values())
 
 
 
             
-            
+def check_rules_vectorized(segments, rules):
+    features = rules.get('features', {})
+    results = np.ones(len(segments), dtype=bool)  # Start with all True
+
+    for feature_index, (feature, details) in enumerate(features.items(), start=1):
+        expression = details.get('Expression')
+
+        if not expression:
+            continue
+
+        # Extract the feature states for all segments
+        states = segments[:, feature_index - 1]  # Adjust index to be 0-based
+
+        if isinstance(expression, dict):
+            if expression.get('abs', False):
+                states = np.abs(states)
+
+            threshold = expression.get('threshold', float('inf'))
+            limit_sign = expression.get('limit_sign')
+
+            # Map limit signs to actual operator functions
+            ops = {'>': operator.gt, '<': operator.lt, '>=': operator.ge, '<=': operator.le, '==': operator.eq}
+            op_func = ops.get(limit_sign)
+
+            # Apply the operation to all states and thresholds
+            if op_func:
+                results &= op_func(states, threshold)
+
+        elif expression.get('type') == '==':
+            sensitivity = expression.get('sensitivity', 0)
+            results &= np.abs(states - segments[:, feature_index - 1]) < sensitivity
+
+    # Return the boolean array where True indicates the segment satisfies the rules
+    return results
 
         
-
-
-                
-
-              
-
 
 
 

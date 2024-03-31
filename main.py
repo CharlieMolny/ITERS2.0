@@ -24,23 +24,22 @@ def check_environment():
 
 def run(task_name,debugging,prefix,user_study,load_iteration):
 
-    run_tailgaiting=False
-    run_speed=False 
+    run_tailgaiting=True
+
 
     # print('Task = {}'.format(task_name))
     rt=''
-    rs=''
+
     if run_tailgaiting:
         rt='_tailgating'
 
-    elif run_speed:
-        rs='_speed'
+
     
     
     # Define paths
     model_path = prefix+'trained_models/{}{}'.format(task_name,rt)
 
-    env_config_path =  prefix+'config/env/{}{}.json'.format(task_name,rt,rs)
+    env_config_path =  prefix+'config/env/{}{}.json'.format(task_name,rt)
     model_config_path =  prefix+'config/model/{}.json'.format(task_name)
     task_config_path =  prefix+'config/task/{}.json'.format(task_name)
     dataset_path= prefix+'datasets/{}{}/'.format(task_name,rt)
@@ -53,7 +52,7 @@ def run(task_name,debugging,prefix,user_study,load_iteration):
     if task_name == 'gridworld':
         env = Gridworld(env_config['time_window'], shaping=False)
     elif task_name == 'highway':
-        env = CustomHighwayEnv(shaping=False, time_window=env_config['time_window'],run_tailgaiting=run_tailgaiting,run_speed=run_speed)
+        env = CustomHighwayEnv(shaping=False, time_window=env_config['time_window'],run_tailgaiting=run_tailgaiting)
         env.config['right_lane_reward'] = env_config['right_lane_reward']
         env.config['lanes_count'] = env_config['lanes_count']
         env.reset()
@@ -69,9 +68,11 @@ def run(task_name,debugging,prefix,user_study,load_iteration):
     # initialize starting and expert.csv model
 
     
-    init_model_path =  prefix+'trained_models/{}{}_init'.format(task_name,rs)
+    init_model_path =  prefix+'trained_models/{}_init'.format(task_name)
+
+    #change this back 
     expert_path = prefix+ 'trained_models/{}_expert{}'.format(task_name,rt)
-    eval_path = prefix+ 'eval/{}{}{}/'.format(task_name,rt,rs)
+    eval_path = prefix+ 'eval/{}{}/'.format(task_name,rt)
 
 
        
@@ -80,7 +81,7 @@ def run(task_name,debugging,prefix,user_study,load_iteration):
     
 
     seeds = [0]
-    lmbdas = [.19]   ##
+    lmbdas = [.1]   ##
     epsilons=[1]
     # evaluate experiments
     experiments = [('best_summary', 'expl'), ('best_summary', 'no_exp'), ('rand_summary', 'expl')]
@@ -98,7 +99,7 @@ def run(task_name,debugging,prefix,user_study,load_iteration):
                         eval_path = 'eval/{}/{}_{}/'.format(task_name, sum, expl)+rt
 
                         task = Task(env, model_path,dataset_path, model_env, expert_model, task_name, max_iter, env_config, model_config,
-                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,run_speed=run_speed,lmbda=l,prefix=prefix,user_study=user_study,load_iteration=load_iteration)
+                                    eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,lmbda=l,prefix=prefix,user_study=user_study,load_iteration=load_iteration)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
 
@@ -149,7 +150,7 @@ def main():
     
     debugging= False
 
-    load_iteration=10
+    load_iteration=0
 
     local=check_environment()
     if local:

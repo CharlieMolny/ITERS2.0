@@ -10,21 +10,24 @@ from src.feedback.feedback_processing import encode_trajectory
 
 class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
-    def __init__(self, shaping=False, time_window=5,run_tailgaiting=False,run_speed=False):
+    def __init__(self, shaping=False, time_window=5,run_tailgaiting=False):
         super().__init__()
         self.shaping = shaping
         self.time_window = time_window
         self.run_tailgaiting=run_tailgaiting
 
-
-        self.run_speed=run_speed
         self.config["tailgating"] = {
             "thresholds": {
                 "thresholdX": 0,
                 "thresholdY": 0
             },
             "reward": 0
-            }
+            ,
+            "observation": {
+                "type": "Kinematics",
+                "absolute": False 
+            }}
+        
 
         self.episode = []
         self.number_of_features=5
@@ -96,11 +99,13 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         speed_rew = self.config["high_speed_reward"] * np.clip(scaled_speed, 0, 1)
 
         
-        right_lane_rew = self.config["right_lane_reward"] * self.lane / max(len(neighbours) - 1, 1)
+        rightmost_lane_index = max(len(neighbours) - 1, 0)
+        is_in_rightmost_lane = int(self.lane == rightmost_lane_index)
+        right_lane_rew = self.config["right_lane_reward"] * is_in_rightmost_lane
 
 
         lane_change = sum(self.lane_changed[-self.time_window:]) >= self.max_changed_lanes
-        true_reward = self.calculate_true_reward(rew, lane_change,tailgating_count)
+        true_reward = self.calculate_true_reward(rew, lane_change,tailgating_count,neighbours)
 
         aug_rew = 0
         if self.shaping:
@@ -131,17 +136,14 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
         return self.state, rew, done, info
 
-    def calculate_true_reward(self, rew, lane_change,tailgating_count):
+    def calculate_true_reward(self, rew, lane_change,tailgating_count,neighbours):
         if self.run_tailgaiting:
             tailgating_rew=tailgating_count*self.true_rewards['tailgating']['reward']
-            return rew + tailgating_rew + self.true_rewards['lane_change_reward'] * lane_change 
+            rightmost_lane_index = max(len(neighbours) - 1, 0)
+            is_in_rightmost_lane = int(self.lane == rightmost_lane_index)
+            right_lane_rew = self.true_rewards["right_lane_reward"] * is_in_rightmost_lane
+            return rew + tailgating_rew + self.true_rewards['lane_change_reward'] * lane_change +right_lane_rew 
 
-        if self.run_speed:
-            forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
-            scaled_speed = utils.lmap(forward_speed, self.config["reward_speed_range"], [0, 1])
-            speed_rew = self.true_rewards["high_speed_reward"] * np.clip(scaled_speed, 0, 1)
-            return rew+self.true_rewards['lane_change_reward']*lane_change +speed_rew
-        
         return rew + self.true_rewards['lane_change_reward'] * lane_change 
 
     def reset(self):
@@ -231,66 +233,96 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         return self.find_features(step,indices)
     
 
+
     def get_tailgaiting_feedback(self, traj, expl_type, count):
+        tailgaiting_feedback = []
+        thresholdX = 0.06
+        thresholdY = 0.125
+        states = [s for s, a in traj]
 
-        tailgaiting_feedback=[]
-        thresholdX=0.2
-        thresholdY=0.1
-        states= [s for s,a in traj]
+        very_negative_signal = -4
+        consecutive_close_timesteps = 0  # Counter for consecutive timesteps where the ego_agent is too close
 
-        very_negative_signal=-4
-        feedback_added = False
-        if self.tailgating_count != count:  # Check if count has changed and is not 0
-            for i,state in enumerate(states):
+        if self.tailgating_count != count:  # Check if count has changed
+            for i, state in enumerate(states[1:], start=1):
 
-                if feedback_added:
-                    break
-                        
-                ego_vehicle_x, ego_vehicle_y = state[0][1], state[0][2]
+                close_this_step = False  # Flag to indicate if the ego_agent is too close in this timestep
+
                 for location in state[1:]:
-                    other_vehicle_x, other_vehicle_y=location[1],location[2]
-                    if abs(other_vehicle_y-ego_vehicle_y) <= thresholdY: ### vehicles are in different lanes
-                        continue
-                    if abs(other_vehicle_x-ego_vehicle_x) < thresholdX:
-                        print("Very Negative Trajectory: {}".format(count))
+                    other_vehicle_x, other_vehicle_y = abs(location[1]), abs(location[2])
+                    if other_vehicle_x <= thresholdX and other_vehicle_y <= thresholdY:
+                        close_this_step = True
+                        consecutive_close_timesteps += 1  # Increment counter if the ego_agent is too close
+                        break  # Break the inner loop as we found at least one vehicle too close
 
-                        rule = {
-                                'quant': 's',
-                                'features': {
-                                    'Feature1': {
-                                        'Expression': {
-                                            'type': '-',  
-                                            'abs': True, 
-                                            'threshold': thresholdX ,
-                                            'limit_sign': '<' 
+                if not close_this_step:
+                    consecutive_close_timesteps = 0  # Reset counter if the condition is not met
 
-                                        }
-                                    },
-                                    'Feature2': {
-                                        'Expression': {
-                                            'type':'-',
-                                            'abs': True, 
-                                            'threshold': thresholdY ,
-                                            'limit_sign': '<'
-                                        }
-                                    },
-                                    'Feature3': {
-                                        'Expression': None  
-                                    },
-                                    'Feature4': {
-                                        'Expression': None  
-                                    }
-                                }
-                            }   
-                        start=max(0, i - (self.time_window//2))
-                        end=min(len(traj), i +  (self.time_window//2) + 1)
-                        important_features=self.get_rule_feature_list(end-start,rule)
-                        feedback=('s', traj[start:end], very_negative_signal,important_features,[rule],self.time_window) 
-                        tailgaiting_feedback.append(feedback)
-                        feedback_added = True
-                        self.last_count = count  
-                        break
+                # Provide feedback only if the ego_agent has been too close for at least 2 consecutive timesteps
+                if consecutive_close_timesteps >= 2:
+                    print("Very Negative Trajectory: {}".format(count))
+                    rule = {
+                        'quant': 's',
+                        'time_steps':2,
+                        'features': {
+                            'Feature0': {'Expression': None},
+                            'Feature1': {'Expression': {'abs': True, 'threshold': thresholdX, 'limit_sign': '<'}},
+                            'Feature2': {'Expression': {'abs': True, 'threshold': thresholdY, 'limit_sign': '<'}},
+                            'Feature3': {'Expression': None},
+                            'Feature4': {'Expression': None}
+                        }
+                    }
+                    start = max(0, i - (self.time_window // 2))
+                    end = min(len(traj), i + (self.time_window // 2) + 1)
+                    important_features = self.get_rule_feature_list(end - start, rule)
+                    feedback = ('s', traj[start:end], very_negative_signal, important_features, [rule], self.time_window)
+                    tailgaiting_feedback.append(feedback)
+                    self.last_count = count
+                    break  # Break the outer loop as feedback has been added
+
         return tailgaiting_feedback
+    
+
+    # def get_tailgaiting_feedback(self, traj, expl_type, count):
+
+    #     tailgaiting_feedback=[]
+    #     thresholdX=0.06
+    #     thresholdY=0.125
+    #     states= [s for s,a in traj]
+
+    #     very_negative_signal=-4
+    #     feedback_added = False
+    #     if self.tailgating_count != count:  # Check if count has changed and is not 0
+    #         for i,state in enumerate(states[1:], start=1):
+
+    #             if feedback_added:
+    #                 break
+                        
+    #             for location in state[1:]:
+    #                 other_vehicle_x, other_vehicle_y=abs(location[1]),abs(location[2])
+    #                 if (other_vehicle_x<=thresholdX and other_vehicle_y<=thresholdY):
+    #                     print("Very Negative Trajectory: {}".format(count))
+
+    #                     rule = {
+    #                         'quant': 's',
+    #                         'time_steps':2,
+    #                         'features': {
+    #                             'Feature0': {'Expression': None},
+    #                             'Feature1': {'Expression': {'abs': True, 'threshold': thresholdX, 'limit_sign': '<'}},
+    #                             'Feature2': {'Expression': {'abs': True, 'threshold': thresholdY, 'limit_sign': '<'}},
+    #                             'Feature3': {'Expression': None},
+    #                             'Feature4': {'Expression': None}
+    #                         }
+    #                     }
+    #                     start=max(0, i - (self.time_window//2))
+    #                     end=min(len(traj), i +  (self.time_window//2) + 1)
+    #                     important_features=self.get_rule_feature_list(end-start,rule)
+    #                     feedback=('s', traj[start:end], very_negative_signal,important_features,[rule],self.time_window) 
+    #                     tailgaiting_feedback.append(feedback)
+    #                     feedback_added = True
+    #                     self.last_count = count  
+    #                     break
+    #     return tailgaiting_feedback
 
    
     def get_lane_feedback(self, traj, expl_type,count):
@@ -365,7 +397,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                
         
 
-    def get_positive_feedback(self,traj,expl_type,count):
+    def get_positive_lane_feedback(self,traj,expl_type,count):
         lowerbound, upperbound = 0, len(traj)
         if len(traj) > self.time_window:
             start = random.randint(0, len(traj) - self.time_window)  # Random start index
@@ -376,7 +408,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         return positive_lane_feedback,True
 
 
-    def get_negative_feedback(self, traj, expl_type,count):
+    def get_negative_change_lane_feedback(self, traj, expl_type,count):
         lane_feedback=[] 
         thresholdY=0.1
         
@@ -409,65 +441,69 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
             start += 1  
             end = start + 2  
       
-        return lane_feedback,negative_label_assigned
+        return lane_feedback
     
 
-    def get_speed_feedback(self,traj,count):
-        upper_speed_threshold=0.313
-        lower_speed_threshold=.29
-        speeds = [s.flatten()[3] for s, a in traj] 
+    def get_right_lane_feedback(self,traj,expl_type,count):
+        lanes = [s.flatten()[2] for s, a in traj]
+        thresholdY=0.1
+        right_lane_position=.75
+
+        right_lane_feedback=[]
+        right_lane_feedback_assigned=False
+
+        def is_right_lane(lane_position, right_lane_position, thresholdY):
+            return abs(lane_position - right_lane_position) < thresholdY
         
-        speed_feedback=[]
+        right_lanes = [is_right_lane(lane, right_lane_position, thresholdY) for lane in lanes]
 
+        for i in range(len(right_lanes) - 4):  # Subtract 4 because we are checking groups of 5
+            if all(right_lanes[i:i+5]):
+                signal=1
+                right_lane_feedback_assigned=True
+                right_lane_feedback=(('s', traj[i:i+5], signal, [2 + (i*self.state_len) for i in range(0, 5)], {},5))
+                break  # Exit the loop after finding the first occurrence
 
-        for i in range(len(speeds) - self.time_window + 1):
-            window = speeds[i:i + self.time_window]  
-
-            if all(lower_speed_threshold < speed <= upper_speed_threshold for speed in window):
-                print("Positive Speed Trajectory: {}".format(count))
-
-                # Calculate the speed signal for each speed in the window, scaled to be closer to 1 when near the upper threshold
-                signals = [(speed - lower_speed_threshold) / (upper_speed_threshold - lower_speed_threshold) for speed in window]
-
-      
-                signal = sum(signals) / len(signals)
-
-
-                speed_feedback = ('s', traj[i:i + self.time_window], signal,
-                                [3 + (j * self.state_len) for j in range(i, i + self.time_window)], {}, self.time_window)
-                break  
-
-
-        return speed_feedback, bool(speed_feedback)
+        return  right_lane_feedback
 
 
 
-    # def get_feedback(self, best_traj, expl_type):
-    #     feedback=[]
-    #     tail_feedback_list=[]
-    #     lane_feedback_list=[]
 
-    #     for count,traj in enumerate(best_traj):
-    #         if self.run_tailgaiting:
-    #             tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
-    #             if tail_feedback:
-    #                 tail_feedback_list.append(tail_feedback[0]) 
-    #             if not tail_feedback :
-    #                 lane_feedback=self.get_lane_feedback(traj,expl_type,count)
-    #                 if lane_feedback:
-    #                     lane_feedback_list.append(lane_feedback[0])
-
-    #         else:
-    #             lane_feedback=self.get_lane_feedback(traj,expl_type,count)
-    #             if lane_feedback:
-    #                 lane_feedback_list.append(lane_feedback[0])
-            
-    #     feedback = tail_feedback_list+lane_feedback_list
-    #     return feedback, True
-    
-    
 
     def get_feedback(self, best_traj, expl_type):
+        feedback=[]
+        tail_feedback_list=[]
+        lane_change_feedback_list=[]
+        right_lane_feedback_list=[]
+
+        for count,traj in enumerate(best_traj):
+            if self.run_tailgaiting:
+                tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
+                if tail_feedback:
+                    tail_feedback_list.append(tail_feedback[0]) 
+                if not tail_feedback :
+                    lane_change_feedback=self.get_negative_change_lane_feedback(traj,expl_type,count)
+                    if lane_change_feedback:
+                        lane_change_feedback_list.append(lane_change_feedback)
+                    if not lane_change_feedback:
+                        right_lane_feedback=self.get_right_lane_feedback(traj,expl_type,count)
+                        if right_lane_feedback:
+                            right_lane_feedback_list.append(right_lane_feedback)
+
+            else:
+                lane_feedback=self.get_lane_feedback(traj,expl_type,count)
+                if lane_feedback:
+                    lane_change_feedback_list.append(lane_feedback[0])
+
+            
+        feedback = [lst for lst in [tail_feedback_list, lane_change_feedback_list, right_lane_feedback_list] if lst]  # Filter out empty lists
+        feedback = sum(feedback, [])  # Concatenate the non-empty lists
+        feedback = [item for item in feedback if item]
+        return feedback, True
+    
+    
+
+    def get_equilibrium_feedback(self, best_traj, expl_type):
         feedback=[]
         tail_feedback_list=[]
         lane_trajectories_list=[]
