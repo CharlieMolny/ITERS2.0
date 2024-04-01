@@ -166,7 +166,12 @@ class Task:
 
             #self.evaluator.evaluate(model, self.env, path=self.prefix+'13_02.csv', lmbda=lmbda, seed=self.seed, write=True)
 
-            buffer_path='datasets/{}/buffer/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)
+            rt=''
+
+            if self.run_tailgaiting:
+                rt='_tailgating'
+
+            buffer_path='datasets/{}{}/buffer/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,rt,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)
             buffer=self.reward_model.get_buffer()
             buffer_file_path=prefix+buffer_path+'data.pt'
             
@@ -176,7 +181,7 @@ class Task:
 
 
 
-            reward_model_path='reward_models/{}/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)
+            reward_model_path='reward_models/{}{}/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,rt,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)
             self.reward_model.save(reward_model_path)
 
 

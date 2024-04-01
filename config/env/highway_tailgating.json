@@ -14,7 +14,7 @@
     "lane_change_reward": -0.4,
     "tailgating": {
       "thresholds":{
-        "thresholdX": 11,
+        "thresholdX": 6,
         "thresholdY" : 2.5
       },  
       "reward": -0.8 

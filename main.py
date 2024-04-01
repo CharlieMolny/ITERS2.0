@@ -68,7 +68,7 @@ def run(task_name,debugging,prefix,user_study,load_iteration):
     # initialize starting and expert.csv model
 
     
-    init_model_path =  prefix+'trained_models/{}_init'.format(task_name)
+    init_model_path =  prefix+'trained_models/{}{}_init'.format(task_name,rt)
 
     #change this back 
     expert_path = prefix+ 'trained_models/{}_expert{}'.format(task_name,rt)
@@ -156,7 +156,7 @@ def main():
     if local:
         prefix=''
     else :
-        debugging=True
+        debugging=False
         prefix='/content/ITERS2.0/'
 
     if debugging:

@@ -470,8 +470,8 @@ def satisfyState(D, r, time_window):
             # Reset the count to 0 where the rule is not satisfied
             consecutive_count[~satisfied_agents] = 0
 
-            # Check if any agent has satisfied the rule for 3 consecutive timesteps
-            if np.any(consecutive_count >= 2):
+
+            if np.any(consecutive_count >= r['time_steps']):
                 add_trajectory=True
                 break
 
@@ -490,33 +490,6 @@ def satisfyState(D, r, time_window):
     return np.array(filtered_D), [max_index]
 
 
-# def check_rules(state1, rules):
-#     results = {}
-#     features = rules.get('features', {})
-#     for feature_index, (feature, details) in enumerate(features.items(), start=1):
-#         expression = details.get('Expression')
-
-#         if expression is None:
-#             continue
-
-#         if isinstance(expression, dict):
-#             state = state1[feature_index - 1]  # Adjusted index to be 0-based
-
-#             if expression.get('abs', False):
-#                 state = abs(state)
-#             threshold = expression.get('threshold', float('inf'))
-#             limit_sign = expression.get('limit_sign')
-#             results[feature_index] = eval(f"{state} {limit_sign} {threshold}")
-
-#         # For equality checks
-#         elif expression.get('type') == '==':
-#             sensitivity = expression.get('sensitivity', 0)
-#             results[feature_index] = abs(state1[feature_index - 1]) < sensitivity  # Adjusted index to be 0-based
-
-#     return all(results.values())
-
-
-
             
 def check_rules_vectorized(segments, rules):
     features = rules.get('features', {})
@@ -528,8 +501,8 @@ def check_rules_vectorized(segments, rules):
         if not expression:
             continue
 
-        # Extract the feature states for all segments
-        states = segments[:, feature_index - 1]  # Adjust index to be 0-based
+  
+        states = segments[:, feature_index - 1]  
 
         if isinstance(expression, dict):
             if expression.get('abs', False):
@@ -538,11 +511,10 @@ def check_rules_vectorized(segments, rules):
             threshold = expression.get('threshold', float('inf'))
             limit_sign = expression.get('limit_sign')
 
-            # Map limit signs to actual operator functions
+            
             ops = {'>': operator.gt, '<': operator.lt, '>=': operator.ge, '<=': operator.le, '==': operator.eq}
             op_func = ops.get(limit_sign)
 
-            # Apply the operation to all states and thresholds
             if op_func:
                 results &= op_func(states, threshold)
 
