@@ -1,4 +1,4 @@
-,collision_rew,right_lane_rew,speed_rew,human_rew,lane_changed,true_reward,feedback,seed,lmbda,epsilon,iter
+,Collision Reward,Right Lane Reward,Speed Reward,Human Reward,Lane Changed,True Reward,feedback,seed,lmbda,epsilon,Iteration
 0,-0.46,0.0,4.068714436786182,0.0,0.88,17.959367454847275,0,0,1,1,1
 1,-0.06,0.0,1.185133263022828,23.126708155586094,0.55,21.070809473587733,0,0,1,1,2
 2,-0.18,0.0,2.307948895126126,20.82324871413701,1.09,20.0765349250901,0,0,1,1,3

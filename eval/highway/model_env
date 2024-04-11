@@ -1,4 +1,4 @@
-,collision_rew,right_lane_rew,speed_rew,human_rew,lane_changed,true_reward,seed,iter
+,Collision Reward,Right Lane Reward,Speed Reward,Human Reward,Lane Changed,True Reward,seed,Iteration
 0,-0.34,0.0,9.120179133830238,0.0,6.85,18.334413667021597,0,0,0.2,1
 0,-0.34,0.0,9.120179133830238,0.0,6.85,18.334413667021597,0,0,0.2,1
 0,-0.34,0.0,9.120179133830238,0.0,6.85,18.334413667021597,0,0,0.2,1

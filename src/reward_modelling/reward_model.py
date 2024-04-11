@@ -18,8 +18,8 @@ class RewardModel:
 
         if load_iteration:
 
-            self.buffer.dataset=torch.load(r'datasets\highway_tailgating\buffer\seed_0_lmbda_0.1_epsilon_1data.pt') ##chanage this later
-            state_dict=torch.load(r'reward_models\highway_tailgaiting\seed_0_lmbda_0.1_epsilon_1')
+            self.buffer.dataset=torch.load(r'datasets\highway\buffer\regular_best_summary_expl\seed_0_lmbda_0.19_epsilon_1data.pt') ##chanage this later
+            state_dict=torch.load(r'reward_models\highway\regular_best_summary_expl\seed_0_lmbda_0.19_epsilon_1')
             self.predictor.net.load_state_dict(state_dict)
             print("loaded previous iteration")
         

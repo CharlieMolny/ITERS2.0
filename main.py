@@ -102,25 +102,38 @@ def run(task_name,debugging,prefix,user_study,load_iteration):
                                     eval_path, debugging,**task_config, expl_type=expl, auto=True, seed=s,run_tailgating=run_tailgaiting,lmbda=l,prefix=prefix,user_study=user_study,load_iteration=load_iteration)
                         task.run(experiment_type='regular', lmbda=l, summary_type=sum, expl_type=expl,epsilon=e,prefix=prefix)
 
-
+import pandas as pd
 
 def evaluate(task_name,prefix):
         # # visualizing true reward for different values of lambda
-    # Balanced_Max_path=prefix+'eval/{}/best_summary_expl/IRS_Balanced_Max_Set.csv'.format(task_name)
-    # Balanced_path=prefix+'eval/{}/best_summary_expl/IRS_Balanced.csv'.format(task_name)
+    # EquilMax_path=prefix+r'eval\highway\best_summary_expl\IRS_Equilibrium_Max_Set.csv'
+    # Equil_path=prefix+r'eval\highway\best_summary_expl\IRS_Equilibrium.csv'
     # Affirmative_path =prefix +   'eval/{}/best_summary_expl/IRS_Affirmative.csv'.format(task_name)
-    #original_eval=prefix+'eval/{}/best_summary_expl/IRS_original.csv'.format(task_name)
-    new_eval=prefix+'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
+    # original_eval_path=prefix+'eval/{}/best_summary_expl/IRS_original.csv'.format(task_name)
+    #new_eval=prefix+'eval/{}/best_summary_expl/IRS.csv'.format(task_name)
+    perfect_path=''
 
     # best_summary_path = prefix + eval_path
     # rand_summary_path = prefix + 'eval/{}/rand_summary_expl/IRS.csv'.format(task_name)
+
     expert_path = prefix + 'eval/{}/expert.csv'.format(task_name)
+
+    
     model_env_path = prefix + 'eval/{}/model_env.csv'.format(task_name)
     
 
     
     #eval_paths=[[Balanced_Max_path,'Balanced and Maxed Iters'],[Balanced_path,'Balanced Iters'],[Affirmative_path,'Affirmative Iters'],[original_eval,'Original Iters']]
-    eval_paths=[[new_eval,'New Iters']]
+    #eval_paths=[[original_eval_path,'ITERS'],[Affirmative_path,'ITERS2: Affirmative Feedback']]
+
+    # eval_paths=[[original_eval_path,'ITERS'],[Affirmative_path,'ITERS2: Affirmative Feedback'],
+    # eval_paths=[[Equil_path,'ITERS2: Equilibrium Feedback'],[EquilMax_path,'ITERS2: Equilibrium Max Set']]
+
+    # eval_paths=[[r'eval\perfect_highway\best_summary_expl\IRS.csv','ITERS2']]
+
+
+    eval_paths=[[r'eval\gridworld\best_summary_expl\IRS.csv','ITERS2']]
+    df = pd.read_csv(r'eval\gridworld\best_summary_expl\IRS.csv', header=0, error_bad_lines=False, warn_bad_lines=True)
 
     for eval,title in eval_paths:
         title = '{} for different values of \u03BB in {} task'.format(title,task_name)
@@ -148,7 +161,7 @@ def main():
     # ## add whether it is sumulated feedback here
     # task_name = args.task
     
-    debugging= False
+    debugging= True
 
     load_iteration=0
 
@@ -162,12 +175,12 @@ def main():
     if debugging:
         print("!Debugging!")
 
-    task_name="highway"
-    #task_name="gridworld"
+    #task_name="highway"
+    task_name="gridworld"
     user_study=False
     #task_name="inventory"    
-    run(task_name,debugging,prefix,user_study,load_iteration)
-    #evaluate(task_name,prefix)
+    #run(task_name,debugging,prefix,user_study,load_iteration)
+    evaluate(task_name,prefix)
 
    
 

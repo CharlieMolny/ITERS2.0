@@ -263,7 +263,7 @@ def augment_feedback_diff(traj, signal, important_features, rules, timesteps, en
         print('Generated {} augmented samples'.format(len(combined_dataset)))
 
         # Check if the combined dataset is large enough
-        if len(combined_dataset) >= 5000:
+        if len(combined_dataset) >= length/2:
             break
 
         # If not, the loop continues, generating more data
@@ -462,13 +462,13 @@ def satisfyState(D, r, time_window):
         add_trajectory=False
         for t in range(time_window):
             agents = trajectory[:, :, t]
-            satisfied_agents = check_rules_vectorized(agents[1:], r)
+            satisfied_state = check_rules_vectorized(agents[1:], r)
 
             # Update the count for agents where the rule is satisfied
-            consecutive_count[satisfied_agents] += 1
+            consecutive_count[satisfied_state] += 1
 
             # Reset the count to 0 where the rule is not satisfied
-            consecutive_count[~satisfied_agents] = 0
+            consecutive_count[~satisfied_state] = 0
 
 
             if np.any(consecutive_count >= r['time_steps']):
@@ -493,7 +493,7 @@ def satisfyState(D, r, time_window):
             
 def check_rules_vectorized(segments, rules):
     features = rules.get('features', {})
-    results = np.ones(len(segments), dtype=bool)  # Start with all True
+    results = np.ones(len(segments), dtype=bool)  
 
     for feature_index, (feature, details) in enumerate(features.items(), start=1):
         expression = details.get('Expression')
@@ -518,9 +518,6 @@ def check_rules_vectorized(segments, rules):
             if op_func:
                 results &= op_func(states, threshold)
 
-        elif expression.get('type') == '==':
-            sensitivity = expression.get('sensitivity', 0)
-            results &= np.abs(states - segments[:, feature_index - 1]) < sensitivity
 
     # Return the boolean array where True indicates the segment satisfies the rules
     return results

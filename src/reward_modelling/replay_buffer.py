@@ -97,7 +97,7 @@ class ReplayBuffer:
         new_marked_list=new_marked.tolist()
 
         updated_marked = []
-
+        count=0
         for i, current_mark in enumerate(self.marked):
             new_data_tensor = new_data.tensors[0]
             dataset_tensor = self.dataset.tensors[0][i]
@@ -112,6 +112,7 @@ class ReplayBuffer:
             )
             
             if is_similar and current_mark+signal<self.maximum_mark:
+                count+=1
                 updated_mark = current_mark + signal
             else:
                 updated_mark = current_mark
@@ -120,6 +121,8 @@ class ReplayBuffer:
             updated_marked.append(updated_mark)
 
         self.marked = updated_marked
+    
+        print(f"Number of increments: {count}  number of segments: {i}")
 
         print("Maximum Signal Allowed in Buffer {}".format(self.maximum_mark))
         self.marked = torch.tensor(self.marked)

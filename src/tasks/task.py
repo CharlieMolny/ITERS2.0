@@ -36,6 +36,7 @@ class Task:
         self.prefix=prefix
         self.user_study=user_study
         self.load_iteration=load_iteration
+        self.run_tailgating=run_tailgating
 
     
         # set seed
@@ -168,7 +169,7 @@ class Task:
 
             rt=''
 
-            if self.run_tailgaiting:
+            if self.run_tailgating:
                 rt='_tailgating'
 
             buffer_path='datasets/{}{}/buffer/{}_{}_{}/seed_{}_lmbda_{}_epsilon_{}'.format(self.task_name,rt,experiment_type, summary_type, expl_type, self.seed, lmbda, epsilon)

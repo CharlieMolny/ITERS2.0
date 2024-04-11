@@ -80,9 +80,9 @@ def visualize_rewards(rew_dict, title='', xticks=None):
         plt.show()
 
 def visualize_best_experiment(path, expert_path, model_env_path, task_name, title):
-    df = pd.read_csv(path, header=0,error_bad_lines=False, warn_bad_lines=True)
-
-    expert_df = pd.read_csv(expert_path)
+    df = pd.read_csv(path, header=0, error_bad_lines=False, warn_bad_lines=True)
+    expert_df = pd.read_csv(expert_path,sep=',')
+    print(expert_df.head())
     model_env_df = pd.read_csv(model_env_path)
 
     expert_end_vals = expert_df.iloc[-1:]
@@ -90,16 +90,20 @@ def visualize_best_experiment(path, expert_path, model_env_path, task_name, titl
     df['lmbda'] = df['lmbda'].astype(float)
     pal = sns.color_palette('Set2')
 
+    # Choose a consistent color for expert and environment values
+    env_color = 'blue'
+    expert_color='red'
+    
+
     for i, metric in enumerate(expert_df.columns):
         expert_df[metric] = expert_end_vals[metric].values[0]
         model_env_df[metric] = baseline_end_vals[metric].values[0]
 
+        y_label=metric
 
-        y_label = r'$R_{true}$' if metric == 'True reward' else metric
-
-        sns.lineplot(df, x="Iteration", y=metric, hue="lmbda", palette=pal)
-        sns.lineplot(data=expert_df, x='Iteration', y=metric, label=r'$M_{true}$')
-        sns.lineplot(data=model_env_df, x='Iteration', y=metric, label=r'$M_{env}$')
+        sns.lineplot(data=df, x="Iteration", y=metric, hue="lmbda", palette=pal)
+        sns.lineplot(data=expert_df, x='Iteration', y=metric, label=r'$M_{true}$', color=expert_color)
+        sns.lineplot(data=model_env_df, x='Iteration', y=metric, label=r'$M_{env}$', color=env_color)
 
         plt.title(title)
         plt.ylabel(y_label)

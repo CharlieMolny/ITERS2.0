@@ -17,10 +17,10 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         self.run_tailgaiting=run_tailgaiting
 
         self.config["tailgating"] = {
-            "thresholds": {
-                "thresholdX": 6,
-                "thresholdY": 1.7
-            },
+            # "thresholds": {
+            #     "thresholdX": 6,
+            #     "thresholdY": 1.7
+            # },
             "reward": 0
             ,
             "observation": {
@@ -52,6 +52,8 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
         self.lmbda = 0.2
         self.epsilon=0
         self.lane_changed = []
+        self.thresholdX=0.04
+        self.thresholdY=0.15
 
 
         self.tailgating_traj=[]
@@ -84,13 +86,11 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
         tailgating_flag=False
         if self.run_tailgaiting:
-            for i,other_vehicle in enumerate(self.road.vehicles[1:]): ## must get rid of index 0, the closest vehicless appear first in the list 
-                other_vehicle_lane=other_vehicle.target_lane_index[2] if isinstance(self.road.vehicles, ControlledVehicle) else self.road.vehicles[1].target_lane_index[2]
-                diffX,diffY=abs(other_vehicle.position[0]-self.vehicle.position[0]),abs(other_vehicle.position[1]-self.vehicle.position[1]) 
-                thresholdX,thresholdY=self.config['tailgating']['thresholds']['thresholdX'],self.config['tailgating']['thresholds']['thresholdY']
-                if diffX < thresholdX and diffY < thresholdY:
+            for location in self.state[1:]: 
+                other_vehicle_x, other_vehicle_y=abs(location[1]),abs(location[2])
+                if other_vehicle_x<=self.thresholdX and other_vehicle_y<=self.thresholdY: ## check if the agent has gotten to close to any vehicles
                     tailgating_flag=True
-    
+
 
         tailgating_rew=tailgating_flag*self.config['tailgating']['reward']
    
@@ -140,9 +140,9 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
         return self.state, rew, done, info
 
-    def calculate_true_reward(self, rew, lane_change,tailgating_count,neighbours):
+    def calculate_true_reward(self, rew, lane_change,tailgating_flag,neighbours):
         if self.run_tailgaiting:
-            tailgating_rew=tailgating_count*self.true_rewards['tailgating']['reward']
+            tailgating_rew=tailgating_flag*self.true_rewards['tailgating']['reward']
             rightmost_lane_index = max(len(neighbours) - 1, 0)
             is_in_rightmost_lane = int(self.lane == rightmost_lane_index)
             right_lane_rew = self.true_rewards["right_lane_reward"] * is_in_rightmost_lane
@@ -241,11 +241,10 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
     def get_tailgaiting_feedback(self, traj, expl_type, count):
 
         tailgaiting_feedback=[]
-        thresholdX=0.025
-        thresholdY=0.1
+
         states= [s for s,a in traj]
 
-        very_negative_signal=-4
+        very_negative_signal=-1.5
         feedback_added = False
 
         for i,state in enumerate(states[1:], start=1):
@@ -255,7 +254,7 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                     
             for location in state[1:]:
                 other_vehicle_x, other_vehicle_y=abs(location[1]),abs(location[2])
-                if (other_vehicle_x<=.5 and other_vehicle_y<=.5):
+                if (other_vehicle_x<=self.thresholdX*100 and other_vehicle_y<=self.thresholdY)*100:
                     print("Very Negative Trajectory: {}".format(count))
 
                     rule = {
@@ -263,15 +262,15 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                         'time_steps':1,
                         'features': {
                             'Feature0': {'Expression': None},
-                            'Feature1': {'Expression': {'abs': True, 'threshold': thresholdX, 'limit_sign': '<'}},
-                            'Feature2': {'Expression': {'abs': True, 'threshold': thresholdY, 'limit_sign': '<'}},
+                            'Feature1': {'Expression': {'abs': True, 'threshold': self.thresholdX, 'limit_sign': '<'}},
+                            'Feature2': {'Expression': {'abs': True, 'threshold': self.thresholdY, 'limit_sign': '<'}},
                             'Feature3': {'Expression': None},
                             'Feature4': {'Expression': None}
                         }
                     }
                     start=max(0, i - (self.time_window//2))
                     end=min(len(traj), i +  (self.time_window//2) + 1)
-                    important_features=self.get_rule_feature_list(end-start,rule)
+                    important_features=[]
                     feedback=('s', traj[start:end], very_negative_signal,important_features,[rule],self.time_window) 
                     tailgaiting_feedback.append(feedback)
                     feedback_added = True
@@ -436,14 +435,14 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
                 tail_feedback=self.get_tailgaiting_feedback( traj, expl_type,count)   
                 if tail_feedback:
                     tail_feedback_list.append(tail_feedback[0]) 
-                # if not tail_feedback :
-                #     lane_change_feedback=self.get_negative_change_lane_feedback(traj,expl_type,count)
-                #     if lane_change_feedback:
-                #         lane_change_feedback_list.append(lane_change_feedback)
-                #     if not lane_change_feedback:
-                #         right_lane_feedback=self.get_right_lane_feedback(traj,expl_type,count)
-                #         if right_lane_feedback:
-                #             right_lane_feedback_list.append(right_lane_feedback)
+                if not tail_feedback :
+                    lane_change_feedback=self.get_negative_change_lane_feedback(traj,expl_type,count)
+                    if lane_change_feedback:
+                        lane_change_feedback_list.append(lane_change_feedback)
+                    if not lane_change_feedback:
+                        right_lane_feedback=self.get_right_lane_feedback(traj,expl_type,count)
+                        if right_lane_feedback:
+                            right_lane_feedback_list.append(right_lane_feedback)
 
             else:
                 lane_feedback=self.get_lane_feedback(traj,expl_type,count)
@@ -589,51 +588,51 @@ class CustomHighwayEnv(highway_env.HighwayEnvFast):
 
    
 
-#  ##  new get binary feedback
-#     def get_lane_feedback(self, best_traj, expl_type):
-#         feedback_list = []
-#         count = 0
-#         for traj in best_traj:
+ ##  new get binary feedback
+    def get_Affirmative_lane_feedback(self, best_traj, expl_type):
+        feedback_list = []
+        count = 0
+        for traj in best_traj:
 
-#             lanes = [s.flatten()[2] for s, a in traj]
+            lanes = [s.flatten()[2] for s, a in traj]
 
-#             changed_lanes = [abs(lanes[i] - lanes[i-1]) > 0.1 if i >= 1 else False for i, _ in enumerate(lanes)]
+            changed_lanes = [abs(lanes[i] - lanes[i-1]) > 0.1 if i >= 1 else False for i, _ in enumerate(lanes)]
 
-#             start = 0
-#             end = start + 2
-#             negative_label_assigned = False  
+            start = 0
+            end = start + 2
+            negative_label_assigned = False  
 
-#             while end < len(changed_lanes):
-#                 while (end - start) <= self.time_window:
-#                     if end >= len(changed_lanes):
-#                         break
+            while end < len(changed_lanes):
+                while (end - start) <= self.time_window:
+                    if end >= len(changed_lanes):
+                        break
 
-#                     changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
-#                     if changed and changed_lanes[start+1]:  
-#                         print("Negative Trajectory number {}".format(count))
-#                         negative_label_assigned = True  
-#                         feedback_list.append(('s', traj[start:end], signal, [2 + (i*self.state_len) for i in range(0, end-start)], {},end-start))
-#                         start = end  
-#                         end = start + 2
-#                         if expl_type == 'expl':
-#                             break
-#                     else:
-#                         end += 1  
-#                 start += 1  
-#                 end = start + 2  
+                    changed = sum(changed_lanes[(start+1):end]) >= self.max_changed_lanes
+                    if changed and changed_lanes[start+1]:  
+                        print("Negative Trajectory number {}".format(count))
+                        negative_label_assigned = True  
+                        feedback_list.append(('s', traj[start:end], signal, [2 + (i*self.state_len) for i in range(0, end-start)], {},end-start))
+                        start = end  
+                        end = start + 2
+                        if expl_type == 'expl':
+                            break
+                    else:
+                        end += 1  
+                start += 1  
+                end = start + 2  
 
-#             if not negative_label_assigned:
+            if not negative_label_assigned:
                 
-#                 lowerbound, upperbound = 0, len(traj)
-#                 if len(traj) > self.time_window:
-#                     start = random.randint(0, len(traj) - self.time_window)  # Random start index
-#                     lowerbound, upperbound = start, start + self.time_window
-#                     signal=1
-#                     if random.random() < self.epsilon:
-#                         continue
-#                     print("Positive Trajectory Number {}".format(count))
-#                 feedback_list.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],{},upperbound-lowerbound ))
+                lowerbound, upperbound = 0, len(traj)
+                if len(traj) > self.time_window:
+                    start = random.randint(0, len(traj) - self.time_window)  # Random start index
+                    lowerbound, upperbound = start, start + self.time_window
+                    signal=1
+                    if random.random() < self.epsilon:
+                        continue
+                    print("Positive Trajectory Number {}".format(count))
+                feedback_list.append(('s', traj[lowerbound:upperbound], signal, [2 + (i*self.state_len) for i in range(0, upperbound-lowerbound)],{},upperbound-lowerbound ))
 
-#             count += 1
-#         return feedback_list, True
+            count += 1
+        return feedback_list, True
 
